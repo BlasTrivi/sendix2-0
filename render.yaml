@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: npm ci && npm run build
-    startCommand: npm start
+  startCommand: npm run prisma:push && npm start
     autoDeploy: true
     envVars:
       - key: DATABASE_URL

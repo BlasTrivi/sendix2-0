@@ -18,13 +18,19 @@ const corsOrigins = rawOrigins.length > 0 ? rawOrigins : undefined; // si no hay
 app.use(corsOrigins ? cors({ origin: corsOrigins }) : cors());
 
 // ---- API ----
+// Health: siempre 200. Indica dbOk para readiness real
 app.get('/health', async (_req, res) => {
   try {
     const now = await prisma.$queryRaw`SELECT NOW()`;
-    res.json({ ok: true, dbTime: now });
+    res.status(200).json({ ok: true, dbOk: true, dbTime: now, serverTime: new Date().toISOString() });
   } catch (err) {
-    res.status(500).json({ ok: false, error: String(err) });
+    res.status(200).json({ ok: true, dbOk: false, error: String(err), serverTime: new Date().toISOString() });
   }
+});
+
+// Liveness puro (sin tocar DB)
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ ok: true, serverTime: new Date().toISOString() });
 });
 
 // ---- API: Loads ----
