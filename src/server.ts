@@ -15,6 +15,9 @@ const app = express();
 const prisma = new PrismaClient();
 
 // Middlewares
+// Confiar en el proxy (Heroku/Render/Vercel/Nginx) para que req.protocol refleje HTTPS
+// y las cookies 'secure' funcionen correctamente detrás de un proxy TLS
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -551,7 +554,10 @@ app.get('/reset-password', (_req, res) => res.sendFile(path.join(rootDir, 'index
 
 const PORT = Number(process.env.PORT) || 4000;
 const server = app.listen(PORT, () => {
+  const opts = getCookieOpts();
   console.log(`✅ API + Web en http://localhost:${PORT}`);
+  console.log('CORS_ORIGIN:', corsOrigins || '(reflect origin)');
+  console.log('COOKIE SameSite/secure:', opts.sameSite, '/', opts.secure);
 });
 
 // Cierre ordenado

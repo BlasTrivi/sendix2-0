@@ -252,7 +252,7 @@ function initLogin(){
         return;
       }catch(err){
         console.error(err);
-        alert('No pudimos iniciar sesión. Verificá tus credenciales.');
+        alert(`No pudimos iniciar sesión: ${err?.message||err}`);
       }
     });
   }
@@ -280,7 +280,7 @@ function initLogin(){
         alert('Si el email existe, te enviamos un enlace para restablecer la contraseña.');
       }catch(err){
         console.error(err);
-        alert('No pudimos procesar tu solicitud ahora. Intentalo más tarde.');
+        alert(`No pudimos procesar tu solicitud: ${err?.message||err}`);
       }
     };
   }
@@ -311,8 +311,9 @@ function initLogin(){
         const { user } = await API.register(payload);
         setSession('', user);
         navigate('home');
-      }catch{
-        alert('No pudimos registrar la cuenta ahora. Intentalo más tarde.');
+      }catch(err){
+        console.error(err);
+        alert(`Registro de empresa falló: ${err?.message||err}`);
       }
     });
   }
@@ -339,8 +340,9 @@ function initLogin(){
         const { user } = await API.register({ role:'transportista', name: fullName, email: String(data.email||'').toLowerCase(), password: String(data.password||''), perfil });
         setSession('', user);
         navigate('home');
-      }catch{
-        alert('No pudimos registrar la cuenta ahora. Intentalo más tarde.');
+      }catch(err){
+        console.error(err);
+        alert(`Registro de transportista falló: ${err?.message||err}`);
       }
     });
   }
@@ -504,12 +506,27 @@ function renderUsers(){
 // API helpers
 function authHeaders(){ return {}; }
 
+function getApiBase(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const qp = params.get('api');
+    if(qp){ return qp; }
+    if(typeof window!=='undefined' && window.SENDIX_API_BASE){ return String(window.SENDIX_API_BASE); }
+    return location.origin;
+  }catch{ return location.origin; }
+}
+async function parseErr(res){
+  try{
+    const t = await res.text();
+    try{ const j = JSON.parse(t); return j.error||t||res.statusText; }catch{ return t||res.statusText; }
+  }catch{ return res.statusText || 'Error'; }
+}
 const API = {
-  base: (typeof window!=='undefined' && window.SENDIX_API_BASE) ? String(window.SENDIX_API_BASE) : location.origin,
+  base: getApiBase(),
   // --- Auth (nuevo) ---
   async login(email, password){
     const res = await fetch(`${API.base}/api/auth/login`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ email, password }), credentials: 'include' });
-    if(!res.ok) throw new Error(await res.text());
+    if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   },
   async register({ role, name, email, password }){
@@ -518,7 +535,7 @@ const API = {
     if(role==='empresa') Object.assign(extra, { phone: state.user?.phone||undefined, taxId: state.user?.taxId||undefined });
     if(role==='transportista') Object.assign(extra, { perfil: state.user?.perfil||undefined });
     const res = await fetch(`${API.base}/api/auth/register`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ role, name, email, password, ...extra }), credentials: 'include' });
-    if(!res.ok) throw new Error(await res.text());
+    if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   },
   async me(){
@@ -533,12 +550,12 @@ const API = {
   },
   async forgot(email){
     const res = await fetch(`${API.base}/api/auth/forgot`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ email }), credentials: 'include' });
-    if(!res.ok) throw new Error(await res.text());
+    if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   },
   async resetPassword(token, password){
     const res = await fetch(`${API.base}/api/auth/reset`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ token, password }), credentials: 'include' });
-    if(!res.ok) throw new Error(await res.text());
+    if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   },
   async listLoads(opts={}){
