@@ -6,7 +6,7 @@
    - Módulos: navegación, auth, empresa, transportista, sendix, chat, tracking
    - Cada función tiene responsabilidad única y renderiza su vista
    ===================================================================== */
-// Nexo + Chat 3 partes + Tracking global por envío (LocalStorage, flujo: SENDIX filtra -> Empresa selecciona)
+// Nexo + Chat 3 partes + Tracking global por envío (modo API: sin persistencia en LocalStorage)
 const routes = ['login','home','publicar','mis-cargas','ofertas','mis-postulaciones','mis-envios','moderacion','conversaciones','resumen','usuarios','perfil','chat','tracking'];
 const SHIP_STEPS = ['pendiente','en-carga','en-camino','entregado'];
 // Comisión SENDIX
@@ -22,29 +22,20 @@ function totalForCompany(price){
 }
 
 const state = {
-  user: JSON.parse(localStorage.getItem('sendix.user') || 'null'),
-  users: JSON.parse(localStorage.getItem('sendix.users') || '[]'),
-  loads: JSON.parse(localStorage.getItem('sendix.loads') || '[]'),
-  proposals: JSON.parse(localStorage.getItem('sendix.proposals') || '[]'),
-  messages: JSON.parse(localStorage.getItem('sendix.messages') || '[]'),
-  trackingStep: localStorage.getItem('sendix.step') || 'pendiente',
+  user: null,
+  users: [],
+  loads: [],
+  proposals: [],
+  messages: [],
+  trackingStep: 'pendiente',
   activeThread: null,
   activeShipmentProposalId: null,
-  reads: JSON.parse(localStorage.getItem('sendix.reads') || '{}'),
+  reads: {},
   justOpenedChat: false,
-  commissions: JSON.parse(localStorage.getItem('sendix.commissions') || '[]')
+  commissions: []
 };
 
-function save(){
-  localStorage.setItem('sendix.user', JSON.stringify(state.user));
-  localStorage.setItem('sendix.users', JSON.stringify(state.users||[]));
-  localStorage.setItem('sendix.reads', JSON.stringify(state.reads));
-  localStorage.setItem('sendix.loads', JSON.stringify(state.loads));
-  localStorage.setItem('sendix.proposals', JSON.stringify(state.proposals));
-  localStorage.setItem('sendix.messages', JSON.stringify(state.messages));
-  localStorage.setItem('sendix.step', state.trackingStep);
-  localStorage.setItem('sendix.commissions', JSON.stringify(state.commissions||[]));
-}
+function save(){ /* modo API: sin persistencia local */ }
 
 // --- Sesión (cookies httpOnly) ---
 function setSession(_tokenIgnored, user){

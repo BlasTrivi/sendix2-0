@@ -155,7 +155,7 @@ app.post('/api/auth/forgot', async (req, res)=>{
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + 60*60*1000);
   // TS puede no ver el delegado si el cliente no se regeneró aún; usar any para evitar error de tipo
-  await (prisma as any).passwordReset.create({ data: { userId: user.id, tokenHash, expiresAt } });
+    await prisma.passwordReset.create({ data: { userId: user.id, tokenHash, expiresAt } });
     const base = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
     const resetUrl = `${base}/reset-password?token=${token}`;
 
@@ -182,12 +182,12 @@ app.post('/api/auth/reset', async (req, res)=>{
     const { token, password } = ResetSchema.parse(req.body);
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const now = new Date();
-  const rec = await (prisma as any).passwordReset.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: now } }, include: { user: true } });
+    const rec = await prisma.passwordReset.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: now } }, include: { user: true } });
     if(!rec) return res.status(400).json({ error: 'Token inválido o expirado' });
     const hash = await bcrypt.hash(password, 10);
     await prisma.$transaction([
       prisma.usuario.update({ where: { id: rec.userId }, data: { passwordHash: hash } }),
-  (prisma as any).passwordReset.update({ where: { id: rec.id }, data: { usedAt: now } })
+    prisma.passwordReset.update({ where: { id: rec.id }, data: { usedAt: now } })
     ]);
     res.json({ ok: true });
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
