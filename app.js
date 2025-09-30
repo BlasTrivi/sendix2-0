@@ -505,6 +505,23 @@ const API = {
     const res = await fetch(`${API.base}/api/loads`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
+  },
+  async listProposals(params={}){
+    const p = new URLSearchParams();
+    Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
+    const res = await fetch(`${API.base}/api/proposals${p.toString()?`?${p.toString()}`:''}`);
+    if(!res.ok) throw new Error('Error list proposals');
+    return res.json();
+  },
+  async createProposal(payload){
+    const res = await fetch(`${API.base}/api/proposals`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async selectProposal(id){
+    const res = await fetch(`${API.base}/api/proposals/${id}/select`, { method:'POST' });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 };
 
@@ -575,6 +592,22 @@ async function addLoad(load){
     state.loads.unshift({ ...load, id, owner: state.user.name, createdAt: new Date().toISOString() });
     save();
   }
+}
+async function syncProposalsFromAPI(){
+  try{
+    const rows = await API.listProposals();
+    state.proposals = rows.map(r=>({
+      id: r.id,
+      loadId: r.loadId,
+      carrier: r.carrier?.name || r.carrierName || '-',
+      vehicle: r.vehicle||'',
+      price: r.price ?? null,
+      status: r.status,
+      shipStatus: r.shipStatus || 'pendiente',
+      createdAt: r.createdAt
+    }));
+    save();
+  }catch(e){ /* fallback silencioso */ }
 }
 async function renderLoads(onlyMine=false){
   await syncLoadsFromAPI();
@@ -729,6 +762,7 @@ function initPublishForm(){
 }
 async function renderMyLoadsWithProposals(focus){
   await syncLoadsFromAPI();
+  await syncProposalsFromAPI();
   const ul = document.getElementById('my-loads-with-proposals');
   const mine = state.loads.filter(l=>l.owner===state.user?.name);
   ul.innerHTML = mine.length ? mine.map(l=>{
@@ -789,36 +823,23 @@ async function renderMyLoadsWithProposals(focus){
     const id = b.dataset.selectWin;
     const winner = state.proposals.find(x=>x.id===id);
     if(!winner) return;
-    // Approve winner, reject others for same load
-    state.proposals.forEach(pp=>{
-      if(pp.loadId===winner.loadId){
-        if(pp.id===winner.id){ pp.status='approved'; pp.shipStatus = pp.shipStatus || 'pendiente'; }
-        else if(pp.status!=='approved'){ pp.status='rejected'; }
-      }
-    });
-    // Registrar comisión SENDIX (se factura al transportista periódicamente)
-    try{
-      const exists = (state.commissions||[]).some(c=>c.proposalId===winner.id);
-      if(!exists){
-        const load = state.loads.find(x=>x.id===winner.loadId);
-        state.commissions = state.commissions||[];
-        state.commissions.unshift({
-          id: genId(),
-          proposalId: winner.id,
-          loadId: winner.loadId,
-          owner: load?.owner || '-',
-          carrier: winner.carrier,
-          price: Number(winner.price||0),
-          rate: COMM_RATE,
-          amount: commissionFor(winner.price),
-          status: 'pending',
-          createdAt: new Date().toISOString()
+    (async()=>{
+      try{
+        await API.selectProposal(winner.id);
+        await syncProposalsFromAPI();
+      }catch{
+        // Fallback local: aprobar una y rechazar el resto
+        state.proposals.forEach(pp=>{
+          if(pp.loadId===winner.loadId){
+            if(pp.id===winner.id){ pp.status='approved'; pp.shipStatus = pp.shipStatus || 'pendiente'; }
+            else if(pp.status!=='approved'){ pp.status='rejected'; }
+          }
         });
+        save();
       }
-    }catch{}
-    save();
-    alert('Propuesta seleccionada. Se habilitó chat y tracking del envío.');
-    openChatByProposalId(winner.id);
+      alert('Propuesta seleccionada. Se habilitó chat y tracking del envío.');
+      openChatByProposalId(winner.id);
+    })();
   }));
   // Acciones sobre envío aprobado (chat / ver envío)
   ul.querySelectorAll('[data-approved-chat]')?.forEach(b=> b.addEventListener('click', ()=> openChatByProposalId(b.dataset.approvedChat)));
@@ -858,18 +879,28 @@ async function renderOffers(){
 
   ul.querySelectorAll('[data-apply]').forEach(form=>form.addEventListener('submit', e=>{
     e.preventDefault();
+    if(state.user?.role!=='transportista'){ alert('Ingresá como Transportista.'); return; }
     const id = form.dataset.apply;
     const alreadyApplied = state.proposals.some(p=>p.loadId===id && p.carrier===state.user?.name);
     const hasApproved = state.proposals.some(p=>p.loadId===id && p.status==='approved');
     if(hasApproved){ alert('Esta carga ya fue adjudicada.'); renderOffers(); return; }
     if(alreadyApplied){ alert('Solo podés postularte una vez a cada carga.'); renderOffers(); return; }
     const data = Object.fromEntries(new FormData(form).entries());
-    state.proposals.unshift({
-      id: genId(), loadId:id, carrier: state.user.name,
-      vehicle: data.vehicle, price: Number(data.price),
-      status: 'pending', shipStatus: 'pendiente', createdAt: new Date().toISOString()
-    });
-    save(); alert('¡Postulación enviada! Queda en revisión por SENDIX.'); renderOffers();
+    (async()=>{
+      try{
+        await API.createProposal({ loadId: id, carrierEmail: state.user.email, carrierName: state.user.name, vehicle: String(data.vehicle||''), price: Number(data.price||0) });
+        await syncProposalsFromAPI();
+        alert('¡Postulación enviada! Queda en revisión por SENDIX.');
+      }catch{
+        state.proposals.unshift({
+          id: genId(), loadId:id, carrier: state.user.name,
+          vehicle: data.vehicle, price: Number(data.price),
+          status: 'pending', shipStatus: 'pendiente', createdAt: new Date().toISOString()
+        });
+        save(); alert('Postulación enviada (local).');
+      }
+      renderOffers();
+    })();
   }));
 }
 function renderMyProposals(){
