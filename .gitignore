@@ -1,0 +1,36 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Backend folder (avoid re-adding backend to this repo)
+server/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Databases (SQLite/Prisma)
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-journal
+.prisma/
+
+# Logs
+logs/
+*.log
+lerna-debug.log*
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/

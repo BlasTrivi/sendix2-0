@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <defs>
+    <style>
+      .bg{fill:#0f1318}
+      .road{fill:none;stroke:#3aa0ff;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+      .pin{fill:#ff8a1e;stroke:#0b0d10;stroke-width:4}
+      .grid{stroke:#1f2630;stroke-width:1}
+    </style>
+  </defs>
+  <rect class="bg" width="640" height="360" rx="16"/>
+  <g opacity=".6">
+    <path class="grid" d="M0 40 H640 M0 80 H640 M0 120 H640 M0 160 H640 M0 200 H640 M0 240 H640 M0 280 H640 M0 320 H640"/>
+    <path class="grid" d="M40 0 V360 M80 0 V360 M120 0 V360 M160 0 V360 M200 0 V360 M240 0 V360 M280 0 V360 M320 0 V360 M360 0 V360 M400 0 V360 M440 0 V360 M480 0 V360 M520 0 V360 M560 0 V360 M600 0 V360"/>
+  </g>
+  <path class="road" d="M80,300 C140,280 160,220 220,210 C280,200 300,260 340,240 C380,220 420,160 470,150 C520,140 540,200 560,220"/>
+  <circle class="pin" cx="80" cy="300" r="12"/>
+  <circle class="pin" cx="560" cy="220" r="12"/>
+</svg>
