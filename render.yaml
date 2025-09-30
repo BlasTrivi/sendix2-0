@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: sendix-web
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PORT
+        value: 4000
+      - key: CORS_ORIGIN
+        value: "*"
+    healthCheckPath: /health
