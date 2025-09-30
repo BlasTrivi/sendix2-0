@@ -319,6 +319,28 @@ const CommissionUpdateSchema = z.object({
   invoiceAt: z.string().datetime().optional()
 });
 
+// Listar comisiones (filtros opcionales: status, ownerEmail, carrierEmail)
+app.get('/api/commissions', async (req, res) => {
+  try{
+    const { status, ownerEmail, carrierEmail } = req.query as Record<string,string>;
+    const where: any = {};
+    if(status) where.status = status;
+    const relations: any = { proposal: { include: { load: { include: { owner: { select: { id:true, name:true, email:true } } } }, carrier: { select: { id:true, name:true, email:true } } } } };
+    if(ownerEmail){
+      relations.proposal.where = { ...(relations.proposal.where||{}), load: { owner: { email: String(ownerEmail).toLowerCase() } } };
+    }
+    if(carrierEmail){
+      relations.proposal.where = { ...(relations.proposal.where||{}), carrier: { email: String(carrierEmail).toLowerCase() } };
+    }
+    const rows = await prisma.commission.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: relations
+    });
+    res.json(rows);
+  }catch(err){ res.status(500).json({ error: String(err) }); }
+});
+
 // Actualizar comisión (p.ej. marcar como facturada)
 app.patch('/api/commissions/:id', async (req, res) => {
   try{
