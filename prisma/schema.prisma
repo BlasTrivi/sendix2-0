@@ -29,6 +29,7 @@ model Usuario {
   messages         Message[]  @relation("UsuarioMessages")
   reads            Read[]
   threadsAsCarrier Thread[]   @relation("CarrierThreads")
+  passwordResets   PasswordReset[]
 }
 
 model Load {
@@ -120,6 +121,18 @@ model Commission {
   status     CommissionStatus @default(pending)
   invoiceAt  DateTime?
   createdAt  DateTime         @default(now())
+}
+
+model PasswordReset {
+  id         String   @id @default(cuid())
+  userId     String
+  user       Usuario  @relation(fields: [userId], references: [id])
+  tokenHash  String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
 }
 
 /**

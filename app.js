@@ -46,27 +46,24 @@ function save(){
   localStorage.setItem('sendix.commissions', JSON.stringify(state.commissions||[]));
 }
 
-// --- Sesión/JWT helpers (nuevo) ---
-function setSession(token, user){
-  try{ if(token) localStorage.setItem('sendix.token', token); }catch{}
-  const safeUser = user ? { name: user.name || user.email || 'Usuario', email: user.email, role: user.role } : null;
+// --- Sesión (cookies httpOnly) ---
+function setSession(_tokenIgnored, user){
+  // El token se guarda en cookie httpOnly del servidor; aquí solo guardamos el usuario
+  const safeUser = user ? { name: user.name || user.email || 'Usuario', email: user.email, role: user.role, phone: user.phone||'', taxId: user.taxId||'', perfil: user.perfil||null } : null;
   state.user = safeUser;
   if(safeUser) upsertUser(safeUser);
   save();
   updateChrome();
 }
 function clearSession(){
-  try{ localStorage.removeItem('sendix.token'); }catch{}
   state.user = null;
   save();
   updateChrome();
 }
 async function tryRestoreSession(){
-  const token = localStorage.getItem('sendix.token');
-  if(!token) return;
   try{
     const me = await API.me();
-    if(me && me.user){ setSession(token, me.user); }
+    if(me && me.user){ setSession('', me.user); }
   }catch{}
 }
 
@@ -258,26 +255,13 @@ function initLogin(){
       const pass = String(data.password||'');
       if(!isValidEmail(emailRaw) || pass.length<6){ alert('Completá email válido y contraseña (6+ caracteres).'); return; }
       try{
-        const { token, user } = await API.login(email, pass);
-        setSession(token, user);
+        const { user } = await API.login(email, pass);
+        setSession('', user);
         navigate('home');
         return;
-      }catch{
-        // Fallback local
-        const u = findUserByEmail(email);
-        if(!u){
-          alert('No existe una cuenta con ese email. Registrate primero.');
-          try{ loginForm.querySelector('input[name="email"]').value=''; loginForm.querySelector('input[name="email"]').focus(); }catch{}
-          state.user = null; save(); updateChrome();
-          return;
-        }
-        if(String(u.password||'') !== pass){
-          alert('Contraseña incorrecta.');
-          try{ loginForm.querySelector('input[name="password"]').value=''; loginForm.querySelector('input[name="password"]').focus(); }catch{}
-          return;
-        }
-        state.user = { ...u };
-        save(); updateChrome(); navigate('home');
+      }catch(err){
+        console.error(err);
+        alert('No pudimos iniciar sesión. Verificá tus credenciales.');
       }
     });
   }
@@ -295,14 +279,18 @@ function initLogin(){
     };
   }
   if(forgot){
-    forgot.onclick = (e)=>{
+    forgot.onclick = async (e)=>{
       e.preventDefault();
       const mail = prompt('Ingresá tu email para restablecer:');
       if(!mail) return;
       if(!isValidEmail(mail)){ alert('Email inválido.'); return; }
-      const u = findUserByEmail(mail);
-      if(!u){ alert('No existe una cuenta con ese email.'); return; }
-      alert('Te enviamos un enlace de restablecimiento (demo).');
+      try{
+        await API.forgot(String(mail).toLowerCase());
+        alert('Si el email existe, te enviamos un enlace para restablecer la contraseña.');
+      }catch(err){
+        console.error(err);
+        alert('No pudimos procesar tu solicitud ahora. Intentalo más tarde.');
+      }
     };
   }
   if(backLogin){
@@ -328,16 +316,12 @@ function initLogin(){
       if(!data.terms){ alert('Debés aceptar los términos y condiciones.'); return; }
       if(!isValidEmail(data.email||'')){ alert('Ingresá un email válido.'); return; }
       try{
-        const { token, user } = await API.register({ role:'empresa', name: String(data.companyName||'Empresa'), email: String(data.email||'').toLowerCase(), password: String(data.password||'') });
-        setSession(token, user);
-        state.user = { ...state.user, companyName: String(data.companyName||''), phone: String(data.phone||''), taxId: String(data.taxId||'') };
-        upsertUser(state.user); save(); updateChrome(); navigate('home');
+        const payload = { role:'empresa', name: String(data.companyName||'Empresa'), email: String(data.email||'').toLowerCase(), password: String(data.password||''), phone: String(data.phone||''), taxId: String(data.taxId||'') };
+        const { user } = await API.register(payload);
+        setSession('', user);
+        navigate('home');
       }catch{
-        const exists = !!findUserByEmail(String(data.email||'').toLowerCase());
-        if(exists){ alert('Ya existe una cuenta con ese email.'); return; }
-        state.user = { name: String(data.companyName||'Empresa'), companyName: String(data.companyName||''), role:'empresa', email: String(data.email||''), password: String(data.password||''), phone: String(data.phone||''), taxId: String(data.taxId||'') };
-        upsertUser(state.user);
-        save(); updateChrome(); navigate('home');
+        alert('No pudimos registrar la cuenta ahora. Intentalo más tarde.');
       }
     });
   }
@@ -354,31 +338,18 @@ function initLogin(){
       if(vehiculos.length===0){ alert('Seleccioná al menos un tipo de vehículo.'); return; }
       const fullName = `${data.firstName||''} ${data.lastName||''}`.trim() || 'Transportista';
       try{
-        const { token, user } = await API.register({ role:'transportista', name: fullName, email: String(data.email||'').toLowerCase(), password: String(data.password||'') });
-        setSession(token, user);
-        state.user = {
-          ...state.user,
-          perfil: {
-            cargas, vehiculos, alcance: String(data.alcance||''),
-            firstName: String(data.firstName||''), lastName: String(data.lastName||''),
-            dni: String(data.dni||''), seguroOk: !!regCarrier.querySelector('input[name="seguroOk"]')?.checked,
-            tipoSeguro: String(data.tipoSeguro||''), senasa: !!regCarrier.querySelector('input[name="senasa"]')?.checked,
-            imo: !!regCarrier.querySelector('input[name="imo"]')?.checked,
-          }
-        };
-        upsertUser(state.user); save(); updateChrome(); navigate('home');
-      }catch{
-        const exists = !!findUserByEmail(String(data.email||'').toLowerCase());
-        if(exists){ alert('Ya existe una cuenta con ese email.'); return; }
-        state.user = { name: fullName, role:'transportista', email: String(data.email||''), password: String(data.password||''), perfil:{
+        const perfil = {
           cargas, vehiculos, alcance: String(data.alcance||''),
           firstName: String(data.firstName||''), lastName: String(data.lastName||''),
           dni: String(data.dni||''), seguroOk: !!regCarrier.querySelector('input[name="seguroOk"]')?.checked,
           tipoSeguro: String(data.tipoSeguro||''), senasa: !!regCarrier.querySelector('input[name="senasa"]')?.checked,
           imo: !!regCarrier.querySelector('input[name="imo"]')?.checked,
-        } };
-        upsertUser(state.user);
-        save(); updateChrome(); navigate('home');
+        };
+        const { user } = await API.register({ role:'transportista', name: fullName, email: String(data.email||'').toLowerCase(), password: String(data.password||''), perfil });
+        setSession('', user);
+        navigate('home');
+      }catch{
+        alert('No pudimos registrar la cuenta ahora. Intentalo más tarde.');
       }
     });
   }
@@ -394,7 +365,7 @@ function updateChrome(){
       </button>
       <button class="btn btn-ghost" id="logout">Salir</button>`;
   } else badge.textContent='';
-  document.getElementById('logout')?.addEventListener('click', ()=>{ clearSession(); navigate('login'); });
+  document.getElementById('logout')?.addEventListener('click', async ()=>{ try{ await API.logout(); }catch{} clearSession(); navigate('login'); });
   document.getElementById('open-profile')?.addEventListener('click', ()=> navigate('perfil'));
   document.getElementById('nav-empresa')?.classList.toggle('visible', state.user?.role==='empresa');
   document.getElementById('nav-transportista')?.classList.toggle('visible', state.user?.role==='transportista');
@@ -474,11 +445,12 @@ function renderProfile(emailToView){
 
   // Guardado
   if(!viewingOther && saveBtn){
-    saveBtn.onclick = ()=>{
+    saveBtn.onclick = async ()=>{
       const data = Object.fromEntries(new FormData(form).entries());
       const oldEmail = String(state.user.email||'');
+      let payload = {};
       if(role==='empresa'){
-        state.user = { ...state.user, name: data.companyName||state.user.name, companyName: data.companyName||'', email: data.email||state.user.email, phone: data.phone||'', taxId: data.taxId||'' };
+        payload = { name: data.companyName||state.user.name, phone: data.phone||'', taxId: data.taxId||'' };
       } else if(role==='transportista'){
         const cargas = Array.from(form.querySelectorAll('input[name="opt-Tipo de carga"]:checked')).map(el=>el.value);
         const vehiculos = Array.from(form.querySelectorAll('input[name="opt-Tipo de vehículo"]:checked')).map(el=>el.value);
@@ -495,26 +467,22 @@ function renderProfile(emailToView){
           alcance: data.alcance||''
         };
         const fullName = `${perfil.firstName} ${perfil.lastName}`.trim() || state.user.name;
-        state.user = { ...state.user, name: fullName, email: data.email||state.user.email, perfil };
+        payload = { name: fullName, perfil };
       } else {
-        state.user = { ...state.user, name: data.name||state.user.name, email: data.email||state.user.email };
+        payload = { name: data.name||state.user.name };
       }
-      // Si cambió el email, actualizar registro sin duplicar
-      const newEmail = String(state.user.email||'');
-      if(isValidEmail(newEmail) && oldEmail.toLowerCase()!==newEmail.toLowerCase()){
-        // Evitar conflicto si ya existe otro usuario con ese email
-        const existing = findUserByEmail(newEmail.toLowerCase());
-        if(existing && String(existing.email||'').toLowerCase() !== oldEmail.toLowerCase()){
-          alert('Ese email ya está en uso por otra cuenta.');
-          return;
+      try{
+        const res = await fetch(`${API.base}/api/profile`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+        if(!res.ok) throw new Error(await res.text());
+        const { user } = await res.json();
+        setSession('', user);
+        upsertUser(state.user);
+        const newEmail = String(state.user.email||'');
+        if(isValidEmail(newEmail) && oldEmail.toLowerCase()!==newEmail.toLowerCase()){
+          state.users = (state.users||[]).filter(u=> String(u.email||'').toLowerCase() !== oldEmail.toLowerCase());
         }
-        // Insertar/actualizar nuevo y remover viejo
-        upsertUser(state.user);
-        state.users = (state.users||[]).filter(u=> String(u.email||'').toLowerCase() !== oldEmail.toLowerCase());
-      } else {
-        upsertUser(state.user);
-      }
-      save(); updateChrome(); alert('Perfil actualizado');
+        save(); updateChrome(); alert('Perfil actualizado');
+      }catch(err){ console.error(err); alert('No pudimos actualizar el perfil ahora.'); }
     };
   }
 }
@@ -543,84 +511,98 @@ function renderUsers(){
 
 // EMPRESA
 // API helpers
-function authHeaders(){
-  try{
-    const token = localStorage.getItem('sendix.token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-  }catch{ return {}; }
-}
+function authHeaders(){ return {}; }
 
 const API = {
   base: (typeof window!=='undefined' && window.SENDIX_API_BASE) ? String(window.SENDIX_API_BASE) : location.origin,
   // --- Auth (nuevo) ---
   async login(email, password){
-    const res = await fetch(`${API.base}/api/auth/login`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ email, password }) });
+    const res = await fetch(`${API.base}/api/auth/login`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ email, password }), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async register({ role, name, email, password }){
-    const res = await fetch(`${API.base}/api/auth/register`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ role, name, email, password }) });
+    // Enviar también campos adicionales si existen en state temporal
+    const extra = {};
+    if(role==='empresa') Object.assign(extra, { phone: state.user?.phone||undefined, taxId: state.user?.taxId||undefined });
+    if(role==='transportista') Object.assign(extra, { perfil: state.user?.perfil||undefined });
+    const res = await fetch(`${API.base}/api/auth/register`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ role, name, email, password, ...extra }), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async me(){
-    const res = await fetch(`${API.base}/api/me`, { headers: { ...authHeaders() } });
+    const res = await fetch(`${API.base}/api/me`, { headers: { ...authHeaders() }, credentials: 'include' });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async logout(){
+    const res = await fetch(`${API.base}/api/auth/logout`, { method:'POST', credentials: 'include' });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async forgot(email){
+    const res = await fetch(`${API.base}/api/auth/forgot`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ email }), credentials: 'include' });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async resetPassword(token, password){
+    const res = await fetch(`${API.base}/api/auth/reset`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ token, password }), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async listLoads(opts={}){
     const p = new URLSearchParams();
     if(opts.ownerEmail) p.set('ownerEmail', String(opts.ownerEmail));
-    const res = await fetch(`${API.base}/api/loads${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() } });
+  const res = await fetch(`${API.base}/api/loads${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() }, credentials: 'include' });
     if(!res.ok) throw new Error('Error list loads');
     return res.json();
   },
   async createLoad(payload){
-    const res = await fetch(`${API.base}/api/loads`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
+  const res = await fetch(`${API.base}/api/loads`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async listProposals(params={}){
     const p = new URLSearchParams();
     Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
-    const res = await fetch(`${API.base}/api/proposals${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() } });
+  const res = await fetch(`${API.base}/api/proposals${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() }, credentials: 'include' });
     if(!res.ok) throw new Error('Error list proposals');
     return res.json();
   },
   async createProposal(payload){
-    const res = await fetch(`${API.base}/api/proposals`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
+  const res = await fetch(`${API.base}/api/proposals`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async selectProposal(id){
-    const res = await fetch(`${API.base}/api/proposals/${id}/select`, { method:'POST', headers: { ...authHeaders() } });
+  const res = await fetch(`${API.base}/api/proposals/${id}/select`, { method:'POST', headers: { ...authHeaders() }, credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async updateProposal(id, payload){
-    const res = await fetch(`${API.base}/api/proposals/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
+  const res = await fetch(`${API.base}/api/proposals/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async filterProposal(id){
-    const res = await fetch(`${API.base}/api/proposals/${id}/filter`, { method:'POST', headers: { ...authHeaders() } });
+  const res = await fetch(`${API.base}/api/proposals/${id}/filter`, { method:'POST', headers: { ...authHeaders() }, credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async rejectProposal(id){
-    const res = await fetch(`${API.base}/api/proposals/${id}/reject`, { method:'POST', headers: { ...authHeaders() } });
+  const res = await fetch(`${API.base}/api/proposals/${id}/reject`, { method:'POST', headers: { ...authHeaders() }, credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async getCommissions(params={}){
     const p = new URLSearchParams();
     Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
-    const res = await fetch(`${API.base}/api/commissions${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() } });
+  const res = await fetch(`${API.base}/api/commissions${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() }, credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async updateCommission(id, payload){
-    const res = await fetch(`${API.base}/api/commissions/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
+  const res = await fetch(`${API.base}/api/commissions/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   }
@@ -1932,6 +1914,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const start = state.user ? (location.hash.replace('#','')||'home') : 'login';
     navigate(start);
   });
+  // Reset password: si estamos en /reset-password con ?token=, abrir flujo
+  try{
+    const path = location.pathname || '/';
+    const params = new URLSearchParams(location.search||'');
+    const token = params.get('token');
+    if(path.includes('reset-password') && token){
+      navigate('login');
+      startResetFlow(token);
+    }
+  }catch{}
   // Shortcut: Ctrl/Cmd+K para buscar chats
   document.addEventListener('keydown', (e)=>{
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){
@@ -2026,4 +2018,60 @@ function escapeHtml(str){
 function linkify(text){
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.replace(urlRegex, (url)=>`<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+}
+// Reset password UI
+function startResetFlow(token){
+  try{
+    const loginView = document.querySelector('[data-route="login"]');
+    if(!loginView) return;
+    // Ocultar formularios de login/registro
+    loginView.querySelector('#auth-login-form')?.setAttribute('style','display:none');
+    loginView.querySelector('#auth-register-cta')?.setAttribute('style','display:none');
+    loginView.querySelector('#auth-sendix-row')?.setAttribute('style','display:none');
+    loginView.querySelector('#auth-register')?.setAttribute('style','display:none');
+    // Crear caja de reset
+    let box = document.getElementById('reset-box');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'reset-box';
+      box.className = 'form small';
+      box.innerHTML = `
+        <h3>Restablecer contraseña</h3>
+        <form id="auth-reset-form">
+          <label>Nueva contraseña
+            <input type="password" name="password" minlength="6" required />
+          </label>
+          <label>Confirmar contraseña
+            <input type="password" name="confirm" minlength="6" required />
+          </label>
+          <button class="btn btn-primary" type="submit">Guardar contraseña</button>
+          <button class="btn btn-ghost" type="button" id="reset-cancel">Cancelar</button>
+        </form>`;
+      loginView.querySelector('.login-box')?.appendChild(box);
+    } else {
+      box.style.display = 'block';
+    }
+    const form = box.querySelector('#auth-reset-form');
+    const cancel = box.querySelector('#reset-cancel');
+    if(cancel){ cancel.addEventListener('click', ()=>{ box.style.display='none'; history.replaceState(null,'', '/'); navigate('login'); }); }
+    if(form){
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(form).entries());
+        const pass = String(fd.password||'');
+        const conf = String(fd.confirm||'');
+        if(pass.length<6){ alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+        if(pass!==conf){ alert('Las contraseñas no coinciden.'); return; }
+        try{
+          await API.resetPassword(token, pass);
+          alert('Contraseña restablecida. Ya podés iniciar sesión.');
+          history.replaceState(null,'', '/');
+          navigate('login');
+        }catch(err){
+          console.error(err);
+          alert('Token inválido o expirado. Solicitá un nuevo enlace.');
+        }
+      }, { once: true });
+    }
+  }catch{}
 }

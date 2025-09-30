@@ -7,17 +7,22 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
+import crypto from 'node:crypto';
+import nodemailer from 'nodemailer';
 
 const app = express();
 const prisma = new PrismaClient();
 
 // Middlewares
 app.use(express.json());
+app.use(cookieParser());
 
 // CORS configurable por variable de entorno (lista separada por comas)
 const rawOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
-const corsOrigins = rawOrigins.length > 0 ? rawOrigins : undefined; // si no hay, no restringimos (mismo origen)
-app.use(corsOrigins ? cors({ origin: corsOrigins }) : cors());
+const corsOrigins = rawOrigins.length > 0 ? rawOrigins : undefined;
+// Si no hay orígenes configurados, reflejamos el Origin del request (origin:true) para permitir credenciales en dev
+app.use(corsOrigins ? cors({ origin: corsOrigins, credentials: true }) : cors({ origin: true, credentials: true }));
 
 // ---- API ----
 // ---- Auth (opcional) ----
@@ -26,8 +31,17 @@ declare global {
   namespace Express { interface Request { user?: JwtUser | null; } }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+// Aceptar JWT_SECRET o JWT_ACCESS_SECRET (compatibilidad con .env existente)
+const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || 'dev-secret';
 const AUTH_REQUIRED = (process.env.AUTH_REQUIRED || 'false').toLowerCase() === 'true';
+// Cookie SameSite configurable: lax | none | strict
+const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE || 'lax').toLowerCase();
+type SameSiteOpt = 'lax' | 'none' | 'strict';
+function getCookieOpts(){
+  const sameSite = (['lax','none','strict'].includes(COOKIE_SAMESITE) ? COOKIE_SAMESITE : 'lax') as SameSiteOpt;
+  const secure = (process.env.NODE_ENV === 'production') || sameSite === 'none';
+  return { httpOnly: true, sameSite, secure, maxAge: 7*24*60*60*1000 } as const;
+}
 
 function signToken(u: JwtUser){
   return jwt.sign(u, JWT_SECRET, { expiresIn: '7d' });
@@ -36,7 +50,11 @@ function signToken(u: JwtUser){
 function decodeAuth(req: express.Request, _res: express.Response, next: express.NextFunction){
   try{
     const h = req.headers['authorization'] || '';
-    const token = h.startsWith('Bearer ') ? h.slice(7) : '';
+    let token = h.startsWith('Bearer ') ? h.slice(7) : '';
+    if(!token){
+      const fromCookie = (req as any).cookies?.token;
+      if(fromCookie && typeof fromCookie === 'string') token = fromCookie;
+    }
     if(token){
       const payload = jwt.verify(token, JWT_SECRET) as JwtUser;
       req.user = payload;
@@ -60,7 +78,10 @@ const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   role: z.enum(['empresa','transportista']).default('empresa'),
-  name: z.string().min(1)
+  name: z.string().min(1),
+  phone: z.string().optional().nullable(),
+  taxId: z.string().optional().nullable(),
+  perfil: z.any().optional()
 });
 app.post('/api/auth/register', async (req, res)=>{
   try{
@@ -68,9 +89,10 @@ app.post('/api/auth/register', async (req, res)=>{
     const exists = await prisma.usuario.findUnique({ where: { email: body.email.toLowerCase() } });
     if(exists) return res.status(409).json({ error: 'Email ya registrado' });
     const hash = await bcrypt.hash(body.password, 10);
-    const user = await prisma.usuario.create({ data: { email: body.email.toLowerCase(), passwordHash: hash, role: body.role, name: body.name } });
-    const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role as any });
-    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    const user = await prisma.usuario.create({ data: { email: body.email.toLowerCase(), passwordHash: hash, role: body.role, name: body.name, phone: body.phone || undefined, taxId: body.taxId || undefined, perfilJson: body.perfil ? body.perfil : undefined } });
+  const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role as any });
+  res.cookie('token', token, getCookieOpts());
+    res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, phone: user.phone, taxId: user.taxId, perfil: user.perfilJson } });
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
 });
 
@@ -82,14 +104,93 @@ app.post('/api/auth/login', async (req, res)=>{
     if(!user) return res.status(401).json({ error: 'Credenciales inválidas' });
     const ok = await bcrypt.compare(password, user.passwordHash || '');
     if(!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
-    const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role as any });
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role as any });
+  res.cookie('token', token, getCookieOpts());
+    res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, phone: user.phone, taxId: user.taxId, perfil: user.perfilJson } });
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
 });
 
-app.get('/api/me', (req, res)=>{
+app.post('/api/auth/logout', (_req, res)=>{
+  const opts = getCookieOpts();
+  res.clearCookie('token', { httpOnly: true, sameSite: opts.sameSite, secure: opts.secure });
+  res.json({ ok: true });
+});
+
+app.get('/api/me', async (req, res)=>{
   if(!req.user) return res.status(200).json({ user: null });
-  res.json({ user: req.user });
+  const db = await prisma.usuario.findUnique({ where: { id: req.user.id } });
+  if(!db) return res.status(200).json({ user: null });
+  res.json({ user: { id: db.id, email: db.email, name: db.name, role: db.role, phone: db.phone, taxId: db.taxId, perfil: db.perfilJson } });
+});
+
+// Actualizar perfil
+const ProfileUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  phone: z.string().optional().nullable(),
+  taxId: z.string().optional().nullable(),
+  perfil: z.any().optional(),
+});
+app.patch('/api/profile', async (req, res)=>{
+  if(!req.user) return res.status(401).json({ error: 'Auth required' });
+  try{
+    const body = ProfileUpdateSchema.parse(req.body);
+    const upd = await prisma.usuario.update({ where: { id: req.user.id }, data: {
+      name: body.name ?? undefined,
+      phone: (body.phone===null? null : body.phone) ?? undefined,
+      taxId: (body.taxId===null? null : body.taxId) ?? undefined,
+      perfilJson: body.perfil ?? undefined
+    }});
+    res.json({ user: { id: upd.id, email: upd.email, name: upd.name, role: upd.role, phone: upd.phone, taxId: upd.taxId, perfil: upd.perfilJson } });
+  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
+});
+
+// Recuperación de contraseña
+const ForgotSchema = z.object({ email: z.string().email() });
+app.post('/api/auth/forgot', async (req, res)=>{
+  try{
+    const { email } = ForgotSchema.parse(req.body);
+    const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
+    if(!user){ return res.json({ ok: true }); }
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + 60*60*1000);
+  // TS puede no ver el delegado si el cliente no se regeneró aún; usar any para evitar error de tipo
+  await (prisma as any).passwordReset.create({ data: { userId: user.id, tokenHash, expiresAt } });
+    const base = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const resetUrl = `${base}/reset-password?token=${token}`;
+
+    // Envío de email
+    try{
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpPort = Number(process.env.SMTP_PORT||'0') || 587;
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+      if(smtpHost && smtpUser && smtpPass){
+        const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort===465, auth: { user: smtpUser, pass: smtpPass } });
+        await transporter.sendMail({ from: process.env.SMTP_FROM || 'no-reply@sendix', to: user.email, subject: 'Recuperar contraseña', text: `Para restablecer tu contraseña, visitá: ${resetUrl}`, html: `<p>Para restablecer tu contraseña, hacé clic: <a href="${resetUrl}">Restablecer</a></p>` });
+      } else {
+        console.log('⚠️ SMTP no configurado. Link de reset:', resetUrl);
+      }
+    }catch(err){ console.error('Error enviando email de reset', err); }
+    res.json({ ok: true });
+  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
+});
+
+const ResetSchema = z.object({ token: z.string().min(10), password: z.string().min(6) });
+app.post('/api/auth/reset', async (req, res)=>{
+  try{
+    const { token, password } = ResetSchema.parse(req.body);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const now = new Date();
+  const rec = await (prisma as any).passwordReset.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: now } }, include: { user: true } });
+    if(!rec) return res.status(400).json({ error: 'Token inválido o expirado' });
+    const hash = await bcrypt.hash(password, 10);
+    await prisma.$transaction([
+      prisma.usuario.update({ where: { id: rec.userId }, data: { passwordHash: hash } }),
+  (prisma as any).passwordReset.update({ where: { id: rec.id }, data: { usedAt: now } })
+    ]);
+    res.json({ ok: true });
+  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
 });
 // Health: siempre 200. Indica dbOk para readiness real
 app.get('/health', async (_req, res) => {
@@ -445,6 +546,8 @@ app.get('/demo-mapa-real.html', (_req, res) => res.sendFile(path.join(rootDir, '
 
 // Raíz: SPA
 app.get('/', (_req, res) => res.sendFile(path.join(rootDir, 'index.html')));
+// Ruta dedicada para restablecer contraseña (sirve la SPA también)
+app.get('/reset-password', (_req, res) => res.sendFile(path.join(rootDir, 'index.html')));
 
 const PORT = Number(process.env.PORT) || 4000;
 const server = app.listen(PORT, () => {
