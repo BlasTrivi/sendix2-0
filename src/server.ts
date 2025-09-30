@@ -313,6 +313,30 @@ app.post('/api/proposals/:id/select', async (req, res) => {
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
 });
 
+// ---- API: Commissions ----
+const CommissionUpdateSchema = z.object({
+  status: z.enum(['pending','invoiced']).optional(),
+  invoiceAt: z.string().datetime().optional()
+});
+
+// Actualizar comisión (p.ej. marcar como facturada)
+app.patch('/api/commissions/:id', async (req, res) => {
+  try{
+    const id = String(req.params.id);
+    const data = CommissionUpdateSchema.parse(req.body);
+    const upd = await prisma.commission.update({
+      where: { id },
+      data: {
+        status: data.status ?? undefined,
+        invoiceAt: data.invoiceAt ? new Date(data.invoiceAt) : undefined
+      }
+    });
+    res.json(upd);
+  }catch(err:any){
+    res.status(400).json({ error: err?.message || String(err) });
+  }
+});
+
 // ---- Frontend estático (sirve index.html y assets) ----
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -522,6 +522,26 @@ const API = {
     const res = await fetch(`${API.base}/api/proposals/${id}/select`, { method:'POST' });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
+  },
+  async updateProposal(id, payload){
+    const res = await fetch(`${API.base}/api/proposals/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async filterProposal(id){
+    const res = await fetch(`${API.base}/api/proposals/${id}/filter`, { method:'POST' });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async rejectProposal(id){
+    const res = await fetch(`${API.base}/api/proposals/${id}/reject`, { method:'POST' });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async updateCommission(id, payload){
+    const res = await fetch(`${API.base}/api/commissions/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 };
 
@@ -606,6 +626,21 @@ async function syncProposalsFromAPI(){
       shipStatus: r.shipStatus || 'pendiente',
       createdAt: r.createdAt
     }));
+    // Derivar comisiones desde proposals que las traen incluidas
+    const commissions = rows.filter(r=> r && r.commission).map(r=>({
+      id: r.commission.id,
+      proposalId: r.id,
+      loadId: r.loadId,
+      owner: r.load?.owner?.name || '-',
+      carrier: r.carrier?.name || '-',
+      price: r.price ?? 0,
+      rate: Number(r.commission.rate ?? COMM_RATE),
+      amount: Number(r.commission.amount ?? 0),
+      status: r.commission.status,
+      createdAt: r.commission.createdAt,
+      invoiceAt: r.commission.invoiceAt || null
+    }));
+    state.commissions = commissions;
     save();
   }catch(e){ /* fallback silencioso */ }
 }
@@ -905,6 +940,8 @@ async function renderOffers(){
 }
 function renderMyProposals(){
   const ul = document.getElementById('my-proposals');
+  (async()=>{ try{ await syncProposalsFromAPI(); }catch{}; actuallyRender(); })();
+  function actuallyRender(){
   const mine = state.proposals.filter(p=>p.carrier===state.user?.name);
   ul.innerHTML = mine.length ? mine.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
@@ -923,11 +960,14 @@ function renderMyProposals(){
     </li>`;
   }).join('') : '<li class="muted">Sin postulaciones.</li>';
   ul.querySelectorAll('[data-chat]').forEach(b=>b.addEventListener('click', ()=>openChatByProposalId(b.dataset.chat)));
+  }
 }
 
 // Envíos del transportista (tracking por envío)
 function renderShipments(){
   const ul = document.getElementById('shipments');
+  (async()=>{ try{ await syncProposalsFromAPI(); }catch{}; actuallyRender(); })();
+  function actuallyRender(){
   const mine = state.proposals.filter(p=>p.carrier===state.user?.name && p.status==='approved');
   ul.innerHTML = mine.length ? mine.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
@@ -953,24 +993,32 @@ function renderShipments(){
     if(p){
       const prev = p.shipStatus || 'pendiente';
       const next = sel.value;
-      p.shipStatus = next;
-      save();
-      if(next==='entregado' && prev!=='entregado'){
-        notifyDelivered(p);
-      }
-      renderShipments();
-      // Si el usuario es empresa y está viendo 'mis-cargas', refrescar para ver estado entregado
-      const currentRoute = (location.hash.replace('#','')||'home');
-      if(currentRoute==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
-      alert('Estado actualizado');
+      (async()=>{
+        try{
+          await API.updateProposal(id, { shipStatus: next });
+          await syncProposalsFromAPI();
+        }catch{
+          p.shipStatus = next; save();
+        }
+        if(next==='entregado' && prev!=='entregado'){
+          notifyDelivered(p);
+        }
+        renderShipments();
+        const currentRoute = (location.hash.replace('#','')||'home');
+        if(currentRoute==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
+        alert('Estado actualizado');
+      })();
     }
   }));
   ul.querySelectorAll('[data-chat]').forEach(b=>b.addEventListener('click', ()=>openChatByProposalId(b.dataset.chat)));
+  }
 }
 
 // SENDIX: Moderación (filtrar) + acceso a chat de aprobados (cuando la empresa elija)
 function renderInbox(){
   const ul = document.getElementById('inbox');
+  (async()=>{ try{ await syncProposalsFromAPI(); }catch{}; actuallyRender(); })();
+  function actuallyRender(){
   // Solo propuestas que no han sido filtradas ni rechazadas
   const pending = state.proposals.filter(p=>p.status==='pending');
   // Propuestas que han sido filtradas por SENDIX y no han sido aprobadas ni rechazadas
@@ -1001,16 +1049,32 @@ function renderInbox(){
   ul.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click', ()=>{
     const id = b.dataset.filter;
     const p = state.proposals.find(x=>x.id===id);
-    if(p && p.status==='pending'){ p.status='filtered'; save(); renderInbox(); alert('Marcada como FILTRADA. La empresa decidirá.'); }
+    if(!p) return;
+    (async()=>{
+      try{ await API.filterProposal(id); await syncProposalsFromAPI(); }
+      catch{ if(p.status==='pending'){ p.status='filtered'; save(); } }
+      renderInbox(); alert('Marcada como FILTRADA. La empresa decidirá.');
+    })();
   }));
   ul.querySelectorAll('[data-unfilter]').forEach(b=>b.addEventListener('click', ()=>{
     const id=b.dataset.unfilter; const p=state.proposals.find(x=>x.id===id);
-    if(p){ p.status='pending'; save(); renderInbox(); }
+    if(!p) return;
+    (async()=>{
+      try{ await API.updateProposal(id, { status:'pending' }); await syncProposalsFromAPI(); }
+      catch{ p.status='pending'; save(); }
+      renderInbox();
+    })();
   }));
   ul.querySelectorAll('[data-reject]').forEach(b=>b.addEventListener('click', ()=>{
     const id = b.dataset.reject; const p = state.proposals.find(x=>x.id===id);
-    if(p){ p.status='rejected'; save(); renderInbox(); }
+    if(!p) return;
+    (async()=>{
+      try{ await API.rejectProposal(id); await syncProposalsFromAPI(); }
+      catch{ p.status='rejected'; save(); }
+      renderInbox();
+    })();
   }));
+  }
 }
 
 // SENDIX/Empresa/Transportista: lista de chats aprobados
@@ -1127,7 +1191,12 @@ function renderMetrics(){
     list.querySelectorAll('[data-invoice]')?.forEach(b=> b.addEventListener('click', ()=>{
       const id = b.dataset.invoice;
       const c = state.commissions.find(x=>x.id===id);
-      if(c){ c.status='invoiced'; c.invoiceAt = new Date().toISOString(); save(); renderMetrics(); }
+      if(!c) return;
+      (async()=>{
+        try{ await API.updateCommission(id, { status:'invoiced', invoiceAt: new Date().toISOString() }); await syncProposalsFromAPI(); }
+        catch{ c.status='invoiced'; c.invoiceAt = new Date().toISOString(); save(); }
+        renderMetrics();
+      })();
     }));
   }
 
@@ -1492,6 +1561,8 @@ function hideTyping(){
 
 // Tracking global por envío
 function renderTracking(){
+  // sincronizar en segundo plano
+  (async()=>{ try{ await syncProposalsFromAPI(); }catch{} })();
   const hint = document.getElementById('tracking-role-hint');
   const actions = document.getElementById('tracking-actions');
   const onlyActive = document.getElementById('tracking-only-active');
@@ -1690,6 +1761,8 @@ function renderTracking(){
 
 // Home visibility by role
 function renderHome(){
+  // sincronizar en segundo plano para actualizar badges
+  (async()=>{ try{ await syncProposalsFromAPI(); }catch{} })();
   const navBadge = document.getElementById('nav-unread');
   if(state.user?.role==='sendix' && navBadge){ const totalUnread = state.proposals.filter(p=>p.status==='approved').map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0); navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
   document.getElementById('cards-empresa').style.display = state.user?.role==='empresa' ? 'grid' : 'none';
