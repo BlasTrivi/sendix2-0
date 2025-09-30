@@ -25,14 +25,14 @@ const state = {
   user: JSON.parse(localStorage.getItem('sendix.user') || 'null'),
   users: JSON.parse(localStorage.getItem('sendix.users') || '[]'),
   loads: JSON.parse(localStorage.getItem('sendix.loads') || '[]'),
-  proposals: JSON.parse(localStorage.getItem('sendix.proposals') || '[]'), // {id, loadId, carrier, vehicle, price, status, shipStatus}
-  messages: JSON.parse(localStorage.getItem('sendix.messages') || '[]'),   // {threadId, from, role, text, ts}
+  proposals: JSON.parse(localStorage.getItem('sendix.proposals') || '[]'),
+  messages: JSON.parse(localStorage.getItem('sendix.messages') || '[]'),
   trackingStep: localStorage.getItem('sendix.step') || 'pendiente',
   activeThread: null,
   activeShipmentProposalId: null,
-  reads: JSON.parse(localStorage.getItem('sendix.reads') || '{}'), // { threadId: { [userName]: lastTs } }
+  reads: JSON.parse(localStorage.getItem('sendix.reads') || '{}'),
   justOpenedChat: false,
-  commissions: JSON.parse(localStorage.getItem('sendix.commissions') || '[]') // {id, proposalId, loadId, owner, carrier, price, rate, amount, status, createdAt, invoiceAt?}
+  commissions: JSON.parse(localStorage.getItem('sendix.commissions') || '[]')
 };
 
 function save(){
@@ -46,7 +46,30 @@ function save(){
   localStorage.setItem('sendix.commissions', JSON.stringify(state.commissions||[]));
 }
 
-// Utils de usuarios/auth
+// --- Sesión/JWT helpers (nuevo) ---
+function setSession(token, user){
+  try{ if(token) localStorage.setItem('sendix.token', token); }catch{}
+  const safeUser = user ? { name: user.name || user.email || 'Usuario', email: user.email, role: user.role } : null;
+  state.user = safeUser;
+  if(safeUser) upsertUser(safeUser);
+  save();
+  updateChrome();
+}
+function clearSession(){
+  try{ localStorage.removeItem('sendix.token'); }catch{}
+  state.user = null;
+  save();
+  updateChrome();
+}
+async function tryRestoreSession(){
+  const token = localStorage.getItem('sendix.token');
+  if(!token) return;
+  try{
+    const me = await API.me();
+    if(me && me.user){ setSession(token, me.user); }
+  }catch{}
+}
+
 function isValidEmail(email){
   const s = String(email||'').trim();
   // Regex simple y suficiente para demo
@@ -227,28 +250,35 @@ function initLogin(){
   const forgot = document.getElementById('auth-forgot');
 
   if(loginForm){
-    loginForm.addEventListener('submit', (e)=>{
+    loginForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const data = Object.fromEntries(new FormData(loginForm).entries());
       const emailRaw = String(data.email||'').trim();
       const email = emailRaw.toLowerCase();
       const pass = String(data.password||'');
       if(!isValidEmail(emailRaw) || pass.length<6){ alert('Completá email válido y contraseña (6+ caracteres).'); return; }
-      const u = findUserByEmail(email);
-      if(!u){
-        alert('No existe una cuenta con ese email. Registrate primero.');
-        try{ loginForm.querySelector('input[name="email"]').value=''; loginForm.querySelector('input[name="email"]').focus(); }catch{}
-        state.user = null; save(); updateChrome();
+      try{
+        const { token, user } = await API.login(email, pass);
+        setSession(token, user);
+        navigate('home');
         return;
+      }catch{
+        // Fallback local
+        const u = findUserByEmail(email);
+        if(!u){
+          alert('No existe una cuenta con ese email. Registrate primero.');
+          try{ loginForm.querySelector('input[name="email"]').value=''; loginForm.querySelector('input[name="email"]').focus(); }catch{}
+          state.user = null; save(); updateChrome();
+          return;
+        }
+        if(String(u.password||'') !== pass){
+          alert('Contraseña incorrecta.');
+          try{ loginForm.querySelector('input[name="password"]').value=''; loginForm.querySelector('input[name="password"]').focus(); }catch{}
+          return;
+        }
+        state.user = { ...u };
+        save(); updateChrome(); navigate('home');
       }
-      if(String(u.password||'') !== pass){
-        alert('Contraseña incorrecta.');
-        try{ loginForm.querySelector('input[name="password"]').value=''; loginForm.querySelector('input[name="password"]').focus(); }catch{}
-        return;
-      }
-      // Login correcto: sesión exacta al registro
-      state.user = { ...u };
-      save(); updateChrome(); navigate('home');
     });
   }
   if(sendixDemo){
@@ -292,21 +322,27 @@ function initLogin(){
     });
   }
   if(regCompany){
-    regCompany.addEventListener('submit', (e)=>{
+    regCompany.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const data = Object.fromEntries(new FormData(regCompany).entries());
       if(!data.terms){ alert('Debés aceptar los términos y condiciones.'); return; }
       if(!isValidEmail(data.email||'')){ alert('Ingresá un email válido.'); return; }
-      const exists = !!findUserByEmail(String(data.email||'').toLowerCase());
-      if(exists){ alert('Ya existe una cuenta con ese email.'); return; }
-      // Persistimos usuario empresa
-      state.user = { name: String(data.companyName||'Empresa'), companyName: String(data.companyName||''), role:'empresa', email: String(data.email||''), password: String(data.password||''), phone: String(data.phone||''), taxId: String(data.taxId||'') };
-      upsertUser(state.user);
-      save(); updateChrome(); navigate('home');
+      try{
+        const { token, user } = await API.register({ role:'empresa', name: String(data.companyName||'Empresa'), email: String(data.email||'').toLowerCase(), password: String(data.password||'') });
+        setSession(token, user);
+        state.user = { ...state.user, companyName: String(data.companyName||''), phone: String(data.phone||''), taxId: String(data.taxId||'') };
+        upsertUser(state.user); save(); updateChrome(); navigate('home');
+      }catch{
+        const exists = !!findUserByEmail(String(data.email||'').toLowerCase());
+        if(exists){ alert('Ya existe una cuenta con ese email.'); return; }
+        state.user = { name: String(data.companyName||'Empresa'), companyName: String(data.companyName||''), role:'empresa', email: String(data.email||''), password: String(data.password||''), phone: String(data.phone||''), taxId: String(data.taxId||'') };
+        upsertUser(state.user);
+        save(); updateChrome(); navigate('home');
+      }
     });
   }
   if(regCarrier){
-    regCarrier.addEventListener('submit', (e)=>{
+    regCarrier.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const formData = new FormData(regCarrier);
       const data = Object.fromEntries(formData.entries());
@@ -314,21 +350,36 @@ function initLogin(){
       const vehiculos = Array.from(regCarrier.querySelectorAll('input[name="vehiculos"]:checked')).map(el=>el.value);
       if(!data.terms){ alert('Debés aceptar los términos y condiciones.'); return; }
       if(!isValidEmail(data.email||'')){ alert('Ingresá un email válido.'); return; }
-      const exists = !!findUserByEmail(String(data.email||'').toLowerCase());
-      if(exists){ alert('Ya existe una cuenta con ese email.'); return; }
       if(cargas.length===0){ alert('Seleccioná al menos un tipo de carga.'); return; }
       if(vehiculos.length===0){ alert('Seleccioná al menos un tipo de vehículo.'); return; }
-      // Persistimos usuario transportista
-      const fullName = `${data.firstName||''} ${data.lastName||''}`.trim();
-      state.user = { name: fullName||'Transportista', role:'transportista', email: String(data.email||''), password: String(data.password||''), perfil:{
-        cargas, vehiculos, alcance: String(data.alcance||''),
-        firstName: String(data.firstName||''), lastName: String(data.lastName||''),
-        dni: String(data.dni||''), seguroOk: !!regCarrier.querySelector('input[name="seguroOk"]')?.checked,
-        tipoSeguro: String(data.tipoSeguro||''), senasa: !!regCarrier.querySelector('input[name="senasa"]')?.checked,
-        imo: !!regCarrier.querySelector('input[name="imo"]')?.checked,
-      } };
-      upsertUser(state.user);
-      save(); updateChrome(); navigate('home');
+      const fullName = `${data.firstName||''} ${data.lastName||''}`.trim() || 'Transportista';
+      try{
+        const { token, user } = await API.register({ role:'transportista', name: fullName, email: String(data.email||'').toLowerCase(), password: String(data.password||'') });
+        setSession(token, user);
+        state.user = {
+          ...state.user,
+          perfil: {
+            cargas, vehiculos, alcance: String(data.alcance||''),
+            firstName: String(data.firstName||''), lastName: String(data.lastName||''),
+            dni: String(data.dni||''), seguroOk: !!regCarrier.querySelector('input[name="seguroOk"]')?.checked,
+            tipoSeguro: String(data.tipoSeguro||''), senasa: !!regCarrier.querySelector('input[name="senasa"]')?.checked,
+            imo: !!regCarrier.querySelector('input[name="imo"]')?.checked,
+          }
+        };
+        upsertUser(state.user); save(); updateChrome(); navigate('home');
+      }catch{
+        const exists = !!findUserByEmail(String(data.email||'').toLowerCase());
+        if(exists){ alert('Ya existe una cuenta con ese email.'); return; }
+        state.user = { name: fullName, role:'transportista', email: String(data.email||''), password: String(data.password||''), perfil:{
+          cargas, vehiculos, alcance: String(data.alcance||''),
+          firstName: String(data.firstName||''), lastName: String(data.lastName||''),
+          dni: String(data.dni||''), seguroOk: !!regCarrier.querySelector('input[name="seguroOk"]')?.checked,
+          tipoSeguro: String(data.tipoSeguro||''), senasa: !!regCarrier.querySelector('input[name="senasa"]')?.checked,
+          imo: !!regCarrier.querySelector('input[name="imo"]')?.checked,
+        } };
+        upsertUser(state.user);
+        save(); updateChrome(); navigate('home');
+      }
     });
   }
 }
@@ -343,7 +394,7 @@ function updateChrome(){
       </button>
       <button class="btn btn-ghost" id="logout">Salir</button>`;
   } else badge.textContent='';
-  document.getElementById('logout')?.addEventListener('click', ()=>{ state.user=null; save(); updateChrome(); navigate('login'); });
+  document.getElementById('logout')?.addEventListener('click', ()=>{ clearSession(); navigate('login'); });
   document.getElementById('open-profile')?.addEventListener('click', ()=> navigate('perfil'));
   document.getElementById('nav-empresa')?.classList.toggle('visible', state.user?.role==='empresa');
   document.getElementById('nav-transportista')?.classList.toggle('visible', state.user?.role==='transportista');
@@ -501,6 +552,22 @@ function authHeaders(){
 
 const API = {
   base: (typeof window!=='undefined' && window.SENDIX_API_BASE) ? String(window.SENDIX_API_BASE) : location.origin,
+  // --- Auth (nuevo) ---
+  async login(email, password){
+    const res = await fetch(`${API.base}/api/auth/login`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ email, password }) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async register({ role, name, email, password }){
+    const res = await fetch(`${API.base}/api/auth/register`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ role, name, email, password }) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async me(){
+    const res = await fetch(`${API.base}/api/me`, { headers: { ...authHeaders() } });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
   async listLoads(opts={}){
     const p = new URLSearchParams();
     if(opts.ownerEmail) p.set('ownerEmail', String(opts.ownerEmail));
@@ -1409,8 +1476,8 @@ function openChatByProposalId(propId){
 }
 function renderChat(){
   const box = document.getElementById('chat-box');
-  const topic = document.getElementById('chat-topic');
   const title = document.getElementById('chat-title');
+  const topic = document.getElementById('chat-topic');
   const typing = document.getElementById('typing-indicator');
   const replyBar = document.getElementById('reply-bar');
   const replySnippet = document.getElementById('reply-snippet');
@@ -1420,7 +1487,7 @@ function renderChat(){
   const backBtn = document.getElementById('chat-back');
   if(!state.activeThread){
     box.innerHTML = '<div class="muted">Elegí una conversación.</div>';
-    title.textContent='Elegí una conversación'; topic.textContent='';
+  title.textContent='Elegí una conversación'; topic.textContent='';
     typing.style.display='none'; replyBar.style.display='none'; attachPreviews.style.display='none';
     chatForm.style.display='none';
     if(backBtn) backBtn.style.display='none';
@@ -1860,8 +1927,11 @@ function renderHome(){
 // Init
 document.addEventListener('DOMContentLoaded', ()=>{
   initNav(); initLogin(); initPublishForm(); reconcileSessionWithUsers(); updateChrome();
-  const start = state.user ? (location.hash.replace('#','')||'home') : 'login';
-  navigate(start);
+  // Restaurar sesión desde backend si hay token
+  tryRestoreSession().finally(()=>{
+    const start = state.user ? (location.hash.replace('#','')||'home') : 'login';
+    navigate(start);
+  });
   // Shortcut: Ctrl/Cmd+K para buscar chats
   document.addEventListener('keydown', (e)=>{
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){
