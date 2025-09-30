@@ -492,54 +492,68 @@ function renderUsers(){
 
 // EMPRESA
 // API helpers
+function authHeaders(){
+  try{
+    const token = localStorage.getItem('sendix.token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  }catch{ return {}; }
+}
+
 const API = {
   base: (typeof window!=='undefined' && window.SENDIX_API_BASE) ? String(window.SENDIX_API_BASE) : location.origin,
   async listLoads(opts={}){
     const p = new URLSearchParams();
     if(opts.ownerEmail) p.set('ownerEmail', String(opts.ownerEmail));
-    const res = await fetch(`${API.base}/api/loads${p.toString()?`?${p.toString()}`:''}`);
+    const res = await fetch(`${API.base}/api/loads${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() } });
     if(!res.ok) throw new Error('Error list loads');
     return res.json();
   },
   async createLoad(payload){
-    const res = await fetch(`${API.base}/api/loads`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch(`${API.base}/api/loads`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async listProposals(params={}){
     const p = new URLSearchParams();
     Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
-    const res = await fetch(`${API.base}/api/proposals${p.toString()?`?${p.toString()}`:''}`);
+    const res = await fetch(`${API.base}/api/proposals${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() } });
     if(!res.ok) throw new Error('Error list proposals');
     return res.json();
   },
   async createProposal(payload){
-    const res = await fetch(`${API.base}/api/proposals`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch(`${API.base}/api/proposals`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async selectProposal(id){
-    const res = await fetch(`${API.base}/api/proposals/${id}/select`, { method:'POST' });
+    const res = await fetch(`${API.base}/api/proposals/${id}/select`, { method:'POST', headers: { ...authHeaders() } });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async updateProposal(id, payload){
-    const res = await fetch(`${API.base}/api/proposals/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch(`${API.base}/api/proposals/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async filterProposal(id){
-    const res = await fetch(`${API.base}/api/proposals/${id}/filter`, { method:'POST' });
+    const res = await fetch(`${API.base}/api/proposals/${id}/filter`, { method:'POST', headers: { ...authHeaders() } });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async rejectProposal(id){
-    const res = await fetch(`${API.base}/api/proposals/${id}/reject`, { method:'POST' });
+    const res = await fetch(`${API.base}/api/proposals/${id}/reject`, { method:'POST', headers: { ...authHeaders() } });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  async getCommissions(params={}){
+    const p = new URLSearchParams();
+    Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
+    const res = await fetch(`${API.base}/api/commissions${p.toString()?`?${p.toString()}`:''}`, { headers: { ...authHeaders() } });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
   async updateCommission(id, payload){
-    const res = await fetch(`${API.base}/api/commissions/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch(`${API.base}/api/commissions/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload) });
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   }
@@ -643,6 +657,27 @@ async function syncProposalsFromAPI(){
     state.commissions = commissions;
     save();
   }catch(e){ /* fallback silencioso */ }
+}
+
+async function syncCommissionsFromAPI(){
+  try{
+    const rows = await API.getCommissions();
+    // Adaptar al shape del panel actual
+    state.commissions = rows.map(r=>({
+      id: r.id,
+      proposalId: r.proposalId,
+      loadId: r.proposal?.loadId,
+      owner: r.proposal?.load?.owner?.name || '-',
+      carrier: r.proposal?.carrier?.name || '-',
+      price: r.proposal?.price ?? 0,
+      rate: Number(r.rate ?? COMM_RATE),
+      amount: Number(r.amount ?? 0),
+      status: r.status,
+      createdAt: r.createdAt,
+      invoiceAt: r.invoiceAt || null
+    }));
+    save();
+  }catch{}
 }
 async function renderLoads(onlyMine=false){
   await syncLoadsFromAPI();
@@ -1148,6 +1183,9 @@ function notifyDelivered(proposal){
 
 // Resumen métricas (demo)
 function renderMetrics(){
+  // antes de pintar, intentar sincronizar comisiones del backend
+  (async()=>{ try{ await syncCommissionsFromAPI(); }catch{}; actuallyRender(); })();
+  function actuallyRender(){
   const tLoads = state.loads.length;
   const tProps = state.proposals.length;
   const approved = state.proposals.filter(p=>p.status==='approved').length;
@@ -1198,6 +1236,7 @@ function renderMetrics(){
         renderMetrics();
       })();
     }));
+  }
   }
 
   // Panel de control por transportista (mensual)

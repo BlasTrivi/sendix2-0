@@ -5,6 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -18,6 +20,77 @@ const corsOrigins = rawOrigins.length > 0 ? rawOrigins : undefined; // si no hay
 app.use(corsOrigins ? cors({ origin: corsOrigins }) : cors());
 
 // ---- API ----
+// ---- Auth (opcional) ----
+type JwtUser = { id: string; email: string; name: string; role: 'empresa'|'transportista'|'sendix' };
+declare global {
+  namespace Express { interface Request { user?: JwtUser | null; } }
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const AUTH_REQUIRED = (process.env.AUTH_REQUIRED || 'false').toLowerCase() === 'true';
+
+function signToken(u: JwtUser){
+  return jwt.sign(u, JWT_SECRET, { expiresIn: '7d' });
+}
+
+function decodeAuth(req: express.Request, _res: express.Response, next: express.NextFunction){
+  try{
+    const h = req.headers['authorization'] || '';
+    const token = h.startsWith('Bearer ') ? h.slice(7) : '';
+    if(token){
+      const payload = jwt.verify(token, JWT_SECRET) as JwtUser;
+      req.user = payload;
+    } else req.user = null;
+  }catch{ req.user = null; }
+  next();
+}
+
+function requireRole(role: JwtUser['role']){
+  return (req: express.Request, res: express.Response, next: express.NextFunction)=>{
+    if(!AUTH_REQUIRED) return next();
+    if(!req.user) return res.status(401).json({ error: 'Auth required' });
+    if(req.user.role !== role) return res.status(403).json({ error: 'Forbidden' });
+    next();
+  };
+}
+
+app.use(decodeAuth);
+
+const RegisterSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(['empresa','transportista']).default('empresa'),
+  name: z.string().min(1)
+});
+app.post('/api/auth/register', async (req, res)=>{
+  try{
+    const body = RegisterSchema.parse(req.body);
+    const exists = await prisma.usuario.findUnique({ where: { email: body.email.toLowerCase() } });
+    if(exists) return res.status(409).json({ error: 'Email ya registrado' });
+    const hash = await bcrypt.hash(body.password, 10);
+    const user = await prisma.usuario.create({ data: { email: body.email.toLowerCase(), passwordHash: hash, role: body.role, name: body.name } });
+    const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role as any });
+    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
+});
+
+const LoginSchema = z.object({ email: z.string().email(), password: z.string().min(6) });
+app.post('/api/auth/login', async (req, res)=>{
+  try{
+    const { email, password } = LoginSchema.parse(req.body);
+    const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
+    if(!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+    const ok = await bcrypt.compare(password, user.passwordHash || '');
+    if(!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
+    const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role as any });
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
+});
+
+app.get('/api/me', (req, res)=>{
+  if(!req.user) return res.status(200).json({ user: null });
+  res.json({ user: req.user });
+});
 // Health: siempre 200. Indica dbOk para readiness real
 app.get('/health', async (_req, res) => {
   try {
@@ -80,7 +153,7 @@ async function ensureCarrierUser(email: string, name: string){
 }
 
 // Crear carga
-app.post('/api/loads', async (req, res) => {
+app.post('/api/loads', requireRole('empresa'), async (req, res) => {
   try {
     const body = LoadCreateSchema.parse(req.body);
     const owner = await ensureEmpresaUser(body.ownerEmail.toLowerCase(), body.ownerName);
@@ -136,7 +209,7 @@ app.get('/api/loads/:id', async (req, res) => {
 });
 
 // Actualizar carga
-app.patch('/api/loads/:id', async (req, res) => {
+app.patch('/api/loads/:id', requireRole('empresa'), async (req, res) => {
   try {
     const id = String(req.params.id);
     const data = LoadUpdateSchema.parse(req.body);
@@ -164,7 +237,7 @@ app.patch('/api/loads/:id', async (req, res) => {
 });
 
 // Borrar carga
-app.delete('/api/loads/:id', async (req, res) => {
+app.delete('/api/loads/:id', requireRole('empresa'), async (req, res) => {
   try {
     const id = String(req.params.id);
     await prisma.load.delete({ where: { id } });
@@ -191,7 +264,7 @@ const ProposalUpdateSchema = z.object({
 });
 
 // Crear propuesta
-app.post('/api/proposals', async (req, res) => {
+app.post('/api/proposals', requireRole('transportista'), async (req, res) => {
   try{
     const body = ProposalCreateSchema.parse(req.body);
     const load = await prisma.load.findUnique({ where: { id: body.loadId } });
@@ -268,7 +341,7 @@ app.patch('/api/proposals/:id', async (req, res) => {
 });
 
 // Moderación rápida: filtrar
-app.post('/api/proposals/:id/filter', async (req, res) => {
+app.post('/api/proposals/:id/filter', requireRole('sendix'), async (req, res) => {
   try{
     const id = String(req.params.id);
     const upd = await prisma.proposal.update({ where: { id }, data: { status: 'filtered' } });
@@ -277,7 +350,7 @@ app.post('/api/proposals/:id/filter', async (req, res) => {
 });
 
 // Rechazar
-app.post('/api/proposals/:id/reject', async (req, res) => {
+app.post('/api/proposals/:id/reject', requireRole('sendix'), async (req, res) => {
   try{
     const id = String(req.params.id);
     const upd = await prisma.proposal.update({ where: { id }, data: { status: 'rejected' } });
@@ -286,7 +359,7 @@ app.post('/api/proposals/:id/reject', async (req, res) => {
 });
 
 // Seleccionar ganadora: aprueba ésta y rechaza el resto del mismo load; crea comisión si no existe
-app.post('/api/proposals/:id/select', async (req, res) => {
+app.post('/api/proposals/:id/select', requireRole('empresa'), async (req, res) => {
   try{
     const id = String(req.params.id);
     const winner = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
