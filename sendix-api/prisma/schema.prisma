@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id            String    @id @default(cuid())
+  role          Role
+  email         String    @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  taxId         String?
+  perfilJson    Json?
+  createdAt     DateTime  @default(now())
+
+  loads         Load[]        @relation("UsuarioLoads")
+  proposals     Proposal[]    @relation("UsuarioProposals")
+  messages      Message[]     @relation("UsuarioMessages")
+  reads         Read[]
+  threadsAsCarrier Thread[]   @relation("CarrierThreads")
+}
+
+model Load {
+  id          String     @id @default(cuid())
+  ownerId     String
+  owner       Usuario    @relation("UsuarioLoads", fields: [ownerId], references: [id])
+  origen      String
+  destino     String
+  tipo        String
+  cantidad    Float?
+  unidad      String?
+  dimensiones String?
+  peso        Float?
+  volumen     Float?
+  fechaHora   DateTime?
+  descripcion String?
+  attachments Json?
+  createdAt   DateTime   @default(now())
+
+  proposals   Proposal[]
+  threads     Thread[]
+}
+
+model Proposal {
+  id          String    @id @default(cuid())
+  loadId      String
+  load        Load      @relation(fields: [loadId], references: [id])
+  carrierId   String
+  carrier     Usuario   @relation("UsuarioProposals", fields: [carrierId], references: [id])
+  vehicle     String?
+  price       Int?
+  status      ProposalStatus @default(pending)
+  shipStatus  ShipStatus     @default(pendiente)
+  createdAt   DateTime @default(now())
+
+  commission  Commission?
+  thread      Thread?
+}
+
+model Thread {
+  id         String   @id @default(cuid())
+  loadId     String
+  carrierId  String
+  load       Load     @relation(fields: [loadId], references: [id])
+  carrier    Usuario  @relation("CarrierThreads", fields: [carrierId], references: [id])
+
+  @@unique([loadId, carrierId])
+
+  messages   Message[]
+  reads      Read[]
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  threadId    String
+  thread      Thread   @relation(fields: [threadId], references: [id])
+  fromUserId  String
+  fromUser    Usuario  @relation("UsuarioMessages", fields: [fromUserId], references: [id])
+  text        String
+  replyToId   String?
+  attachments Json?
+  createdAt   DateTime @default(now())
+}
+
+model Read {
+  id         String   @id @default(cuid())
+  threadId   String
+  userId     String
+  lastReadAt DateTime @default(now())
+  thread     Thread   @relation(fields: [threadId], references: [id])
+  user       Usuario  @relation(fields: [userId], references: [id])
+
+  @@unique([threadId, userId])
+}
+
+model Commission {
+  id          String   @id @default(cuid())
+  proposalId  String   @unique
+  proposal    Proposal @relation(fields: [proposalId], references: [id])
+  rate        Decimal  @default(0.0)
+  amount      Int?
+  status      CommissionStatus @default(pending)
+  invoiceAt   DateTime?
+  createdAt   DateTime @default(now())
+}
+
+enum Role {
+  empresa
+  transportista
+  sendix
+}
+
+enum ProposalStatus {
+  pending
+  filtered
+  approved
+  rejected
+}
+
+enum ShipStatus {
+  pendiente
+  en_carga
+  en_camino
+  entregado
+}
+
+
+enum CommissionStatus {
+  pending
+  invoiced
+}
