@@ -491,12 +491,93 @@ function renderUsers(){
 }
 
 // EMPRESA
-function addLoad(load){
-  const id = genId();
-  state.loads.unshift({ ...load, id, owner: state.user.name, createdAt: new Date().toISOString() });
-  save();
+// API helpers
+const API = {
+  base: location.origin,
+  async listLoads(opts={}){
+    const p = new URLSearchParams();
+    if(opts.ownerEmail) p.set('ownerEmail', String(opts.ownerEmail));
+    const res = await fetch(`${API.base}/api/loads${p.toString()?`?${p.toString()}`:''}`);
+    if(!res.ok) throw new Error('Error list loads');
+    return res.json();
+  },
+  async createLoad(payload){
+    const res = await fetch(`${API.base}/api/loads`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+};
+
+async function syncLoadsFromAPI(){
+  try{
+    if(!state.user) return;
+    const rows = await API.listLoads();
+    // Adaptar a formato local para render sin romper nada
+    state.loads = rows.map(r=>({
+      id: r.id,
+      owner: r.owner?.name || r.ownerName || state.user.name,
+      origen: r.origen,
+      destino: r.destino,
+      tipo: r.tipo,
+      cantidad: r.cantidad ?? null,
+      unidad: r.unidad || '',
+      dimensiones: r.dimensiones || '',
+      peso: r.peso ?? null,
+      volumen: r.volumen ?? null,
+      fechaHora: r.fechaHora || r.createdAt,
+      descripcion: r.descripcion || '',
+      adjuntos: r.attachments || [] ,
+      createdAt: r.createdAt
+    }));
+    save();
+  }catch(e){ /* fallback silencioso */ }
 }
-function renderLoads(onlyMine=false){
+
+async function addLoad(load){
+  // Intentar API primero; si falla, guardar localmente
+  try{
+    const created = await API.createLoad({
+      ownerEmail: state.user?.email,
+      ownerName: state.user?.name,
+      origen: load.origen,
+      destino: load.destino,
+      tipo: load.tipo,
+      cantidad: load.cantidad ?? null,
+      unidad: load.unidad||'',
+      dimensiones: load.dimensiones||'',
+      peso: load.peso ?? null,
+      volumen: load.volumen ?? null,
+      fechaHora: load.fechaHora || null,
+      descripcion: load.descripcion||'',
+      attachments: load.adjuntos||[]
+    });
+    // Insertar arriba adaptado
+    state.loads.unshift({
+      id: created.id,
+      owner: created.owner?.name || state.user.name,
+      origen: created.origen,
+      destino: created.destino,
+      tipo: created.tipo,
+      cantidad: created.cantidad ?? null,
+      unidad: created.unidad || '',
+      dimensiones: created.dimensiones || '',
+      peso: created.peso ?? null,
+      volumen: created.volumen ?? null,
+      fechaHora: created.fechaHora || created.createdAt,
+      descripcion: created.descripcion || '',
+      adjuntos: created.attachments || [],
+      createdAt: created.createdAt
+    });
+    save();
+    return;
+  }catch(e){
+    const id = genId();
+    state.loads.unshift({ ...load, id, owner: state.user.name, createdAt: new Date().toISOString() });
+    save();
+  }
+}
+async function renderLoads(onlyMine=false){
+  await syncLoadsFromAPI();
   const ul = document.getElementById('loads-list');
   const data = onlyMine ? state.loads.filter(l=>l.owner===state.user?.name) : state.loads;
   ul.innerHTML = data.length ? data.map(l=>`
@@ -646,7 +727,8 @@ function initPublishForm(){
   });
   updatePreview();
 }
-function renderMyLoadsWithProposals(focus){
+async function renderMyLoadsWithProposals(focus){
+  await syncLoadsFromAPI();
   const ul = document.getElementById('my-loads-with-proposals');
   const mine = state.loads.filter(l=>l.owner===state.user?.name);
   ul.innerHTML = mine.length ? mine.map(l=>{
@@ -744,7 +826,8 @@ function renderMyLoadsWithProposals(focus){
 }
 
 // TRANSPORTISTA
-function renderOffers(){
+async function renderOffers(){
+  await syncLoadsFromAPI();
   const ul = document.getElementById('offers-list');
   // Excluir mis propias cargas y las que ya tienen una propuesta aprobada
   const approvedByLoad = new Set(state.proposals.filter(p=>p.status==='approved').map(p=>p.loadId));
