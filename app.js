@@ -307,7 +307,7 @@ function initLogin(){
       if(!data.terms){ alert('Debés aceptar los términos y condiciones.'); return; }
       if(!isValidEmail(data.email||'')){ alert('Ingresá un email válido.'); return; }
       try{
-        const payload = { role:'empresa', name: String(data.companyName||'Empresa'), email: String(data.email||'').toLowerCase(), password: String(data.password||''), phone: String(data.phone||''), taxId: String(data.taxId||'') };
+        const payload = { role:'empresa', name: String(data.companyName||'Empresa'), email: String(data.email||'').toLowerCase(), password: String(data.password||''), phone: String(data.phone||'')||null, taxId: String(data.taxId||'')||null };
         const { user } = await API.register(payload);
         setSession('', user);
         navigate('home');
@@ -529,12 +529,9 @@ const API = {
     if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   },
-  async register({ role, name, email, password }){
-    // Enviar también campos adicionales si existen en state temporal
-    const extra = {};
-    if(role==='empresa') Object.assign(extra, { phone: state.user?.phone||undefined, taxId: state.user?.taxId||undefined });
-    if(role==='transportista') Object.assign(extra, { perfil: state.user?.perfil||undefined });
-    const res = await fetch(`${API.base}/api/auth/register`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ role, name, email, password, ...extra }), credentials: 'include' });
+  async register(payload){
+    // Enviar el payload tal cual (incluye phone, taxId o perfil según el formulario)
+    const res = await fetch(`${API.base}/api/auth/register`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
     if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   },
@@ -2068,13 +2065,15 @@ function startResetFlow(token){
         const fd = Object.fromEntries(new FormData(form).entries());
         const pass = String(fd.password||'');
         const conf = String(fd.confirm||'');
-        if(pass.length<6){ alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+        const strong = pass.length>=8 && /[A-Z]/.test(pass) && /[a-z]/.test(pass) && /[0-9]/.test(pass);
+        if(!strong){ alert('La contraseña debe tener mínimo 8 caracteres y combinar mayúsculas, minúsculas y números.'); return; }
         if(pass!==conf){ alert('Las contraseñas no coinciden.'); return; }
         try{
-          await API.resetPassword(token, pass);
-          alert('Contraseña restablecida. Ya podés iniciar sesión.');
+          const r = await API.resetPassword(token, pass);
+          alert('Contraseña restablecida. Bienvenido.');
+          if(r && r.user){ setSession('', r.user); }
           history.replaceState(null,'', '/');
-          navigate('login');
+          navigate('home');
         }catch(err){
           console.error(err);
           alert('Token inválido o expirado. Solicitá un nuevo enlace.');

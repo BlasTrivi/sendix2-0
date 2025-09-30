@@ -77,14 +77,43 @@ function requireRole(role: JwtUser['role']){
 
 app.use(decodeAuth);
 
+// Validaciones comunes (datos de perfil)
+const PhoneSchema = z.string().trim().min(6).max(32).regex(/^[+0-9()\-\s]+$/, 'Formato de teléfono inválido');
+const TaxIdSchema = z.string().trim().min(6).max(32).regex(/^[0-9A-Za-z.\-]+$/, 'Formato de documento inválido');
+const DniSchema = z.string().trim().min(6).max(20).regex(/^[0-9A-Za-z.\-]+$/, 'Formato de DNI inválido');
+const CARGAS = ['Contenedor','Granel','Carga general','Flete'] as const;
+const VEHICULOS = ['Liviana','Mediana','Pesada'] as const;
+const TransportistaPerfilSchema = z.object({
+  cargas: z.array(z.enum(CARGAS)).nonempty('Elegí al menos un tipo de carga'),
+  vehiculos: z.array(z.enum(VEHICULOS)).nonempty('Elegí al menos un tipo de vehículo'),
+  alcance: z.string().trim().max(200).optional().nullable(),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
+  dni: DniSchema,
+  seguroOk: z.boolean().optional(),
+  tipoSeguro: z.string().trim().max(120).optional().nullable(),
+  senasa: z.boolean().optional(),
+  imo: z.boolean().optional(),
+});
+const TransportistaPerfilPartialSchema = TransportistaPerfilSchema.partial();
+
+const strongPassword = z.string().min(8)
+  .refine(v=> /[A-Z]/.test(v), 'Debe incluir al menos una mayúscula')
+  .refine(v=> /[a-z]/.test(v), 'Debe incluir al menos una minúscula')
+  .refine(v=> /[0-9]/.test(v), 'Debe incluir al menos un número');
 const RegisterSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: strongPassword,
   role: z.enum(['empresa','transportista']).default('empresa'),
   name: z.string().min(1),
-  phone: z.string().optional().nullable(),
-  taxId: z.string().optional().nullable(),
+  phone: PhoneSchema.optional().nullable(),
+  taxId: TaxIdSchema.optional().nullable(),
   perfil: z.any().optional()
+}).superRefine((val, ctx)=>{
+  if(val.role === 'transportista'){
+    const res = TransportistaPerfilSchema.safeParse(val.perfil);
+    if(!res.success){ res.error.issues.forEach(i=> ctx.addIssue({ ...i })); }
+  }
 });
 app.post('/api/auth/register', async (req, res)=>{
   try{
@@ -92,7 +121,9 @@ app.post('/api/auth/register', async (req, res)=>{
     const exists = await prisma.usuario.findUnique({ where: { email: body.email.toLowerCase() } });
     if(exists) return res.status(409).json({ error: 'Email ya registrado' });
     const hash = await bcrypt.hash(body.password, 10);
-    const user = await prisma.usuario.create({ data: { email: body.email.toLowerCase(), passwordHash: hash, role: body.role, name: body.name, phone: body.phone || undefined, taxId: body.taxId || undefined, perfilJson: body.perfil ? body.perfil : undefined } });
+  const phoneNorm = (body.phone ?? undefined) ? String(body.phone).trim() : undefined;
+  const taxNorm = (body.taxId ?? undefined) ? String(body.taxId).trim() : undefined;
+  const user = await prisma.usuario.create({ data: { email: body.email.toLowerCase(), passwordHash: hash, role: body.role, name: body.name.trim(), phone: phoneNorm || undefined, taxId: taxNorm || undefined, perfilJson: body.perfil ?? undefined } });
   const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role as any });
   res.cookie('token', token, getCookieOpts());
     res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, phone: user.phone, taxId: user.taxId, perfil: user.perfilJson } });
@@ -126,23 +157,33 @@ app.get('/api/me', async (req, res)=>{
   res.json({ user: { id: db.id, email: db.email, name: db.name, role: db.role, phone: db.phone, taxId: db.taxId, perfil: db.perfilJson } });
 });
 
-// Actualizar perfil
-const ProfileUpdateSchema = z.object({
-  name: z.string().min(1).optional(),
-  phone: z.string().optional().nullable(),
-  taxId: z.string().optional().nullable(),
-  perfil: z.any().optional(),
+// Actualizar perfil (validación por rol)
+const ProfileUpdateBase = z.object({ name: z.string().min(1).optional() });
+const EmpresaProfileUpdate = ProfileUpdateBase.extend({
+  phone: PhoneSchema.optional().nullable(),
+  taxId: TaxIdSchema.optional().nullable(),
+});
+const TransportistaProfileUpdate = ProfileUpdateBase.extend({
+  perfil: TransportistaPerfilPartialSchema.optional(),
 });
 app.patch('/api/profile', async (req, res)=>{
   if(!req.user) return res.status(401).json({ error: 'Auth required' });
   try{
-    const body = ProfileUpdateSchema.parse(req.body);
-    const upd = await prisma.usuario.update({ where: { id: req.user.id }, data: {
-      name: body.name ?? undefined,
-      phone: (body.phone===null? null : body.phone) ?? undefined,
-      taxId: (body.taxId===null? null : body.taxId) ?? undefined,
-      perfilJson: body.perfil ?? undefined
-    }});
+    const role = req.user.role;
+    let data: any = {};
+    if(role === 'empresa'){
+      const body = EmpresaProfileUpdate.parse(req.body);
+      const phoneNorm = body.phone===null ? null : (body.phone ? String(body.phone).trim() : undefined);
+      const taxNorm = body.taxId===null ? null : (body.taxId ? String(body.taxId).trim() : undefined);
+      data = { name: body.name ?? undefined, phone: phoneNorm, taxId: taxNorm };
+    } else if(role === 'transportista'){
+      const body = TransportistaProfileUpdate.parse(req.body);
+      data = { name: body.name ?? undefined, perfilJson: body.perfil ?? undefined };
+    } else {
+      const body = ProfileUpdateBase.parse(req.body);
+      data = { name: body.name ?? undefined };
+    }
+    const upd = await prisma.usuario.update({ where: { id: req.user.id }, data });
     res.json({ user: { id: upd.id, email: upd.email, name: upd.name, role: upd.role, phone: upd.phone, taxId: upd.taxId, perfil: upd.perfilJson } });
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
 });
@@ -154,6 +195,8 @@ app.post('/api/auth/forgot', async (req, res)=>{
     const { email } = ForgotSchema.parse(req.body);
     const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
     if(!user){ return res.json({ ok: true }); }
+    // Invalida tokens anteriores
+    await prisma.passwordReset.updateMany({ where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } }, data: { usedAt: new Date() } });
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + 60*60*1000);
@@ -187,12 +230,18 @@ app.post('/api/auth/reset', async (req, res)=>{
     const now = new Date();
     const rec = await prisma.passwordReset.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: now } }, include: { user: true } });
     if(!rec) return res.status(400).json({ error: 'Token inválido o expirado' });
+    // Reforzar política aquí también
+    if(password.length < 8) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
     const hash = await bcrypt.hash(password, 10);
     await prisma.$transaction([
       prisma.usuario.update({ where: { id: rec.userId }, data: { passwordHash: hash } }),
-    prisma.passwordReset.update({ where: { id: rec.id }, data: { usedAt: now } })
+      prisma.passwordReset.update({ where: { id: rec.id }, data: { usedAt: now } })
     ]);
-    res.json({ ok: true });
+    // Auto-login tras reset: emitir cookie
+    const u = rec.user;
+    const tokenJwt = signToken({ id: u.id, email: u.email, name: u.name, role: u.role as any });
+    res.cookie('token', tokenJwt, getCookieOpts());
+    res.json({ ok: true, user: { id: u.id, email: u.email, name: u.name, role: u.role, phone: u.phone, taxId: u.taxId, perfil: u.perfilJson } });
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
 });
 // Health: siempre 200. Indica dbOk para readiness real
