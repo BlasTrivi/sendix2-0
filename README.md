@@ -43,6 +43,24 @@ python -m http.server 8080
 
 No se requiere build ni instalación de paquetes.
 
+## Despliegue público
+
+Opción A — Un solo servidor (frontend+API):
+
+- Requisitos: Postgres accesible (DATABASE_URL), Node 18+.
+- En un VPS o en Render/Railway:
+	- Variables de entorno: `DATABASE_URL`, `PORT=4000`, `CORS_ORIGIN`.
+	- Build: `npm run build`. Start: `npm start`.
+	- Docker: usar `Dockerfile` incluido. Exponer puerto 4000.
+
+Opción B — Frontend (Netlify/Vercel) + Backend (Railway/Render):
+
+- Backend: desplegar este repo como servicio (usa `npm run build` y `npm start`).
+- Frontend: servir archivos estáticos (`index.html`, `styles.css`, `app.js`, `assets`).
+- Configurá en el HTML del front una variable global con la URL de API si es distinto dominio:
+	`<script>window.SENDIX_API_BASE = 'https://TU_API_PUBLICA';</script>`
+- El frontend usa esa URL para llamar a `/api/loads`.
+
 ## Rutas y vistas
 
 - Login: selección de rol y nombre.

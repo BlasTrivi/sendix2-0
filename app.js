@@ -493,7 +493,7 @@ function renderUsers(){
 // EMPRESA
 // API helpers
 const API = {
-  base: location.origin,
+  base: (typeof window!=='undefined' && window.SENDIX_API_BASE) ? String(window.SENDIX_API_BASE) : location.origin,
   async listLoads(opts={}){
     const p = new URLSearchParams();
     if(opts.ownerEmail) p.set('ownerEmail', String(opts.ownerEmail));

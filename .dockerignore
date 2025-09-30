@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log*
+yarn-*.log
+pnpm-lock.yaml
+coverage
+dist
+.git
+.gitignore
+Dockerfile
+.vscode
+**/*.sqlite
+**/*.db
+**/*.db-journal
+.prisma
+sendix-api/
+sendix-api@1.0.0/
