@@ -72,13 +72,13 @@ function ensureSocket(){
           renderThreads();
         }
         // Actualizar badge global de no leídos
-        refreshNavUnreadBadge();
+        scheduleNavUnreadRefresh();
       }catch{}
     });
     // Lectura por otro usuario (podríamos refrescar contadores)
     socket.on('chat:read', (_evt)=>{
       try{ const route=(location.hash.replace('#','')||'home'); if(route==='conversaciones') renderThreads(); }catch{}
-      try{ refreshNavUnreadBadge(); }catch{}
+      scheduleNavUnreadRefresh();
     });
   }catch{}
 }
@@ -93,6 +93,8 @@ function setSession(_tokenIgnored, user){
   if(safeUser) upsertUser(safeUser);
   save();
   updateChrome();
+  // Actualizar badge global de no leídos tras iniciar sesión
+  scheduleNavUnreadRefresh(50);
 }
 function clearSession(){
   state.user = null;
@@ -106,6 +108,8 @@ async function tryRestoreSession(){
   }catch{}
   // Inicializar socket después de intentar restaurar sesión
   ensureSocket();
+  // Y refrescar badge con la sesión restaurada
+  scheduleNavUnreadRefresh(50);
 }
 
 function isValidEmail(email){
@@ -226,6 +230,13 @@ async function refreshNavUnreadBadge(){
     const { total } = await getUnreadMapForProposals(threads);
     updateNavUnreadBadge(total);
   }catch{}
+}
+
+// Debounce para evitar recalcular muchas veces seguido
+let _navUnreadTimer = null;
+function scheduleNavUnreadRefresh(delay=200){
+  try{ if(_navUnreadTimer) clearTimeout(_navUnreadTimer); }catch{}
+  _navUnreadTimer = setTimeout(()=>{ try{ refreshNavUnreadBadge(); }catch{} }, delay);
 }
 
 // Thread helpers by role
