@@ -851,3 +851,31 @@ async function shutdown(signal: string) {
 }
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// --- Bootstrap: crear admin SENDIX si hay variables configuradas ---
+async function ensureSendixAdmin(){
+  try{
+    const email = (process.env.SENDIX_ADMIN_EMAIL||'').toLowerCase().trim();
+    const password = process.env.SENDIX_ADMIN_PASSWORD||'';
+    const name = process.env.SENDIX_ADMIN_NAME || 'Nexo SENDIX';
+    if(!email || !password){
+      console.log('ℹ️ SENDIX_ADMIN_EMAIL/PASSWORD no configurados: omitiendo bootstrap de admin');
+      return;
+    }
+    const existing = await prisma.usuario.findUnique({ where: { email } });
+    if(existing){
+      if(existing.role !== 'sendix'){
+        await prisma.usuario.update({ where: { id: existing.id }, data: { role: 'sendix' } });
+        console.log('✅ Usuario existente marcado como sendix:', email);
+      } else {
+        console.log('ℹ️ Admin SENDIX ya existe:', email);
+      }
+      return;
+    }
+    const hash = await bcrypt.hash(password, 10);
+    await prisma.usuario.create({ data: { email, name, role: 'sendix', passwordHash: hash } });
+    console.log('✅ Admin SENDIX creado:', email);
+  }catch(err){ console.error('Error creando admin SENDIX:', err); }
+}
+
+(async()=>{ await ensureSendixAdmin(); })();

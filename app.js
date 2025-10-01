@@ -303,6 +303,12 @@ function initLogin(){
       }
     });
   }
+  // Ocultar el acceso SENDIX (demo) por defecto; mostrar solo si se pasa ?demo=sendix
+  try{
+    const allowSendixDemo = new URLSearchParams(location.search).get('demo')==='sendix';
+    const sendixRowEl = document.getElementById('auth-sendix-row');
+    if(sendixRowEl) sendixRowEl.style.display = allowSendixDemo ? 'block' : 'none';
+  }catch{}
   if(sendixDemo){
     sendixDemo.onclick = ()=>{ state.user = { name:'Nexo SENDIX', role:'sendix', email:'sendix@demo', password: '' }; upsertUser(state.user); save(); updateChrome(); navigate('home'); };
   }
