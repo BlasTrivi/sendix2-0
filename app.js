@@ -71,11 +71,14 @@ function ensureSocket(){
           renderChat();
           renderThreads();
         }
+        // Actualizar badge global de no leídos
+        refreshNavUnreadBadge();
       }catch{}
     });
     // Lectura por otro usuario (podríamos refrescar contadores)
     socket.on('chat:read', (_evt)=>{
       try{ const route=(location.hash.replace('#','')||'home'); if(route==='conversaciones') renderThreads(); }catch{}
+      try{ refreshNavUnreadBadge(); }catch{}
     });
   }catch{}
 }
@@ -176,6 +179,53 @@ function markThreadRead(threadId){
   if(!state.reads[threadId]) state.reads[threadId] = {};
   state.reads[threadId][state.user?.name] = Date.now();
   save();
+}
+
+// Unread helpers (comparten cálculo entre vistas)
+async function getUnreadMapForProposals(proposals){
+  const threads = Array.isArray(proposals) ? proposals : [];
+  let unreadMap = {};
+  let total = 0;
+  try{
+    const m = await API.chatUnread();
+    unreadMap = m || {};
+    total = threads.map(p=> (unreadMap[p.id]?.unread||0)).reduce((a,b)=>a+b,0);
+  }catch{
+    // Fallback local con estado en memoria
+    unreadMap = {};
+    for(const p of threads){
+      const u = computeUnread(threadIdFor(p));
+      unreadMap[p.id] = { unread: u, lastMessageAt: null };
+      total += u;
+    }
+  }
+  return { unreadMap, total };
+}
+
+function updateNavUnreadBadge(total){
+  const navBadge = document.getElementById('nav-unread');
+  if(!navBadge) return;
+  const prev = Number(navBadge.textContent||'0');
+  navBadge.style.display = total ? 'inline-block' : 'none';
+  navBadge.textContent = total;
+  if(total!==prev && total>0){ navBadge.classList.remove('pulse-badge'); void navBadge.offsetWidth; navBadge.classList.add('pulse-badge'); }
+}
+
+function setBadgeValue(idOrEl, value){
+  const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+  if(!el) return;
+  const prev = Number(el.textContent||'0');
+  el.style.display = value ? 'inline-block' : 'none';
+  el.textContent = value;
+  if(value!==prev && value>0){ el.classList.remove('pulse-badge'); void el.offsetWidth; el.classList.add('pulse-badge'); }
+}
+
+async function refreshNavUnreadBadge(){
+  try{
+    const threads = threadsForCurrentUser();
+    const { total } = await getUnreadMapForProposals(threads);
+    updateNavUnreadBadge(total);
+  }catch{}
 }
 
 // Thread helpers by role
@@ -1249,7 +1299,6 @@ function renderInbox(){
 
 // SENDIX/Empresa/Transportista: lista de chats aprobados
 function renderThreads(){
-  const navBadge = document.getElementById('nav-unread');
   const ul = document.getElementById('threads');
   const q = (document.getElementById('chat-search')?.value||'').toLowerCase();
   // Sincronizar datos base en segundo plano
@@ -1257,10 +1306,8 @@ function renderThreads(){
   const myThreads = threadsForCurrentUser();
   // Obtener no leídos/último mensaje desde el backend y renderizar
   (async()=>{
-    let unreadMap = {};
-    try{ unreadMap = await API.chatUnread(); }catch{}
-    const totalUnread = myThreads.map(p=> (unreadMap[p.id]?.unread||0)).reduce((a,b)=>a+b,0);
-    if(navBadge){ navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
+    const { unreadMap, total } = await getUnreadMapForProposals(myThreads);
+    updateNavUnreadBadge(total);
     const items = myThreads.map(p=>{
       const l = state.loads.find(x=>x.id===p.loadId);
       const title = `${l?.origen} → ${l?.destino}`;
@@ -1985,11 +2032,11 @@ function renderTracking(){
 function renderHome(){
   // sincronizar en segundo plano para actualizar badges
   (async()=>{ try{ await syncProposalsFromAPI(); }catch{} })();
-  const navBadge = document.getElementById('nav-unread');
-  if(state.user?.role==='sendix' && navBadge){
+  if(state.user?.role==='sendix'){
     (async()=>{
-      try{ const m = await API.chatUnread(); const totalUnread = state.proposals.filter(p=>p.status==='approved').map(p=> (m[p.id]?.unread||0)).reduce((a,b)=>a+b,0); navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
-      catch{ const totalUnread = state.proposals.filter(p=>p.status==='approved').map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0); navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
+      const threads = state.proposals.filter(p=>p.status==='approved');
+      const { total } = await getUnreadMapForProposals(threads);
+      updateNavUnreadBadge(total);
     })();
   }
   document.getElementById('cards-empresa').style.display = state.user?.role==='empresa' ? 'grid' : 'none';
@@ -2003,18 +2050,8 @@ function renderHome(){
     const trackingActivos = myApproved.filter(p=>(p.shipStatus||'pendiente')!=='entregado').length;
     const b1 = document.getElementById('badge-empresa-mis-cargas');
     const b2 = document.getElementById('badge-empresa-tracking');
-    if(b1){
-      const prev = Number(b1.textContent||'0');
-      b1.style.display = myLoads? 'inline-block':'none';
-      b1.textContent = myLoads;
-      if(myLoads!==prev && myLoads>0){ b1.classList.remove('pulse-badge'); void b1.offsetWidth; b1.classList.add('pulse-badge'); }
-    }
-    if(b2){
-      const prev = Number(b2.textContent||'0');
-      b2.style.display = trackingActivos? 'inline-block':'none';
-      b2.textContent = trackingActivos;
-      if(trackingActivos!==prev && trackingActivos>0){ b2.classList.remove('pulse-badge'); void b2.offsetWidth; b2.classList.add('pulse-badge'); }
-    }
+    if(b1) setBadgeValue(b1, myLoads);
+    if(b2) setBadgeValue(b2, trackingActivos);
   }
   if(state.user?.role==='transportista'){
     const approvedByLoad = new Set(state.proposals.filter(p=>p.status==='approved').map(p=>p.loadId));
@@ -2022,17 +2059,10 @@ function renderHome(){
     const misPost = state.proposals.filter(p=>p.carrier===state.user?.name).length;
     const misEnvios = state.proposals.filter(p=>p.carrier===state.user?.name && p.status==='approved').length;
     const trackingActivos = state.proposals.filter(p=>p.carrier===state.user?.name && p.status==='approved' && (p.shipStatus||'pendiente')!=='entregado').length;
-    const setBadge = (id,val)=>{
-      const el=document.getElementById(id); if(!el) return;
-      const prev = Number(el.textContent||'0');
-      el.style.display = val? 'inline-block':'none';
-      el.textContent = val;
-      if(val!==prev && val>0){ el.classList.remove('pulse-badge'); void el.offsetWidth; el.classList.add('pulse-badge'); }
-    };
-    setBadge('badge-transp-ofertas', ofertas);
-    setBadge('badge-transp-mis-postulaciones', misPost);
-    setBadge('badge-transp-mis-envios', misEnvios);
-    setBadge('badge-transp-tracking', trackingActivos);
+    setBadgeValue('badge-transp-ofertas', ofertas);
+    setBadgeValue('badge-transp-mis-postulaciones', misPost);
+    setBadgeValue('badge-transp-mis-envios', misEnvios);
+    setBadgeValue('badge-transp-tracking', trackingActivos);
   }
   if(state.user?.role==='sendix'){
     const moderacion = state.proposals.filter(p=>p.status==='pending').length;
@@ -2040,12 +2070,10 @@ function renderHome(){
     const b1 = document.getElementById('badge-sendix-moderacion');
     const b2 = document.getElementById('badge-sendix-conversaciones');
     (async()=>{
-      let unread = 0;
-      try{ const m = await API.chatUnread(); unread = threads.map(p=> (m[p.id]?.unread||0)).reduce((a,b)=>a+b,0); }
-      catch{ unread = threads.map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0); }
-      if(b2){ const prev=Number(b2.textContent||'0'); b2.style.display = unread? 'inline-block':'none'; b2.textContent = unread; if(unread!==prev && unread>0){ b2.classList.remove('pulse-badge'); void b2.offsetWidth; b2.classList.add('pulse-badge'); } }
+      const { total } = await getUnreadMapForProposals(threads);
+      if(b2) setBadgeValue(b2, total);
     })();
-    if(b1){ const prev=Number(b1.textContent||'0'); b1.style.display = moderacion? 'inline-block':'none'; b1.textContent = moderacion; if(moderacion!==prev && moderacion>0){ b1.classList.remove('pulse-badge'); void b1.offsetWidth; b1.classList.add('pulse-badge'); } }
+    if(b1) setBadgeValue(b1, moderacion);
   }
 }
 
