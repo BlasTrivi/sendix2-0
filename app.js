@@ -1557,7 +1557,20 @@ function renderMetrics(){
 
   const list = document.getElementById('commissions-list');
   if(list){
-    const items = [...comms].sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+    // Filtros de período para el detalle global
+    const commPeriod = document.getElementById('comm-period');
+    const commCut = document.getElementById('comm-cut');
+    // Inicializar mes actual si vacío
+    if(commPeriod && !commPeriod.value){
+      const d = new Date();
+      commPeriod.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+    const {start: gStart, end: gEnd} = periodRange(commPeriod?.value || '', commCut?.value || 'full');
+    // Items del período
+    const items = [...(comms||[])].filter(c=>{
+      const dt = dateForPeriod(c);
+      return dt>=gStart && dt<gEnd;
+    }).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
     list.innerHTML = items.length ? items.map(c=>{
       const l = state.loads.find(x=>x.id===c.loadId);
       const status = c.status==='pending'? '<span class="badge">Pendiente</span>' : `<span class="badge ok">Facturada</span>`;
@@ -1580,6 +1593,9 @@ function renderMetrics(){
         renderMetrics();
       })();
     }));
+    // Eventos de filtros
+    if(commPeriod) commPeriod.onchange = ()=> renderMetrics();
+    if(commCut) commCut.onchange = ()=> renderMetrics();
   }
   }
 
@@ -1603,6 +1619,10 @@ function renderMetrics(){
     }
     // Lista de transportistas a partir de comisiones (usar snapshot local comms)
     const carriers = Array.from(new Set((comms||[]).map(c=>c.carrier).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    // Auto-seleccionar el primero si no hay seleccionado y existen transportistas
+    if(!adminWrap.dataset.selectedCarrier && carriers.length){
+      adminWrap.dataset.selectedCarrier = carriers[0];
+    }
     carrierList.innerHTML = carriers.length ? carriers.map(name=>{
       const selected = adminWrap.dataset.selectedCarrier===name;
       // Sumar del período/corte seleccionado para badge

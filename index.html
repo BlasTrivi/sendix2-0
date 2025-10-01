@@ -413,6 +413,18 @@
           <li class="row"><span>Facturadas últimos 30 días</span><strong id="m-comm-30">$0</strong></li>
         </ul>
         <h3 class="mt">Detalle de comisiones</h3>
+        <div class="row" style="gap:8px; align-items:center; margin:6px 0">
+          <label>Período
+            <input type="month" id="comm-period" />
+          </label>
+          <label>Corte
+            <select id="comm-cut">
+              <option value="full">Mes completo</option>
+              <option value="q1">1Q (1–15)</option>
+              <option value="q2">2Q (16–fin)</option>
+            </select>
+          </label>
+        </div>
         <ul id="commissions-list" class="list"></ul>
 
         <h3 class="mt">Control de comisiones por transportista</h3>
