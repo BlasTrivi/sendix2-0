@@ -32,7 +32,8 @@ const state = {
   activeShipmentProposalId: null,
   reads: {},
   justOpenedChat: false,
-  commissions: []
+  commissions: [],
+  adminUsers: []
 };
 
 // --- Socket.IO cliente ---
@@ -481,8 +482,21 @@ function updateChrome(){
   updateBottomBarHeight();
 }
 
+async function fetchAdminUsers(params={}){
+  try{
+    const p = new URLSearchParams();
+    Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
+    const res = await fetch(`${API.base}/api/users${p.toString()?`?${p.toString()}`:''}`, { credentials:'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
+    const rows = await res.json();
+    state.adminUsers = rows;
+    save();
+    return rows;
+  }catch{ return []; }
+}
+
 // PERFIL propio o de terceros (solo SENDIX)
-function renderProfile(emailToView){
+async function renderProfile(emailToView){
   const isSendix = state.user?.role==='sendix';
   const title = document.getElementById('profile-title');
   const back = document.getElementById('profile-back');
@@ -493,7 +507,12 @@ function renderProfile(emailToView){
   const email = (emailToView || form.dataset.viewEmail || state.user?.email || '').toLowerCase();
   const viewingOther = isSendix && email && email !== String(state.user?.email||'').toLowerCase();
   // Encontrar fuente
-  const me = viewingOther ? (state.users||[]).find(u=> String(u.email||'').toLowerCase()===email) : state.user;
+  let me = viewingOther ? ((state.adminUsers||[]).find(u=> String(u.email||'').toLowerCase()===email) || (state.users||[]).find(u=> String(u.email||'').toLowerCase()===email)) : state.user;
+  if(viewingOther && !me){
+    // Intentar traerlo del backend admin
+    const rows = await fetchAdminUsers({ q: email });
+    me = rows.find(u=> String(u.email||'').toLowerCase()===email) || null;
+  }
   if(!me){
     if(title) title.textContent = 'Perfil';
     if(back) back.onclick = ()=> navigate('home');
@@ -609,45 +628,35 @@ async function renderUsers(){
   const alcanceIn = document.getElementById('users-alcance');
   const clearBtn = document.getElementById('users-clear');
   if(!ul) return;
-  // Mostrar filtros de transportista sólo cuando corresponda
-  const currentRole = String(roleSel?.value||'all');
-  if(boxTransp) boxTransp.style.display = (currentRole==='transportista' || currentRole==='all') ? 'flex' : 'none';
-  const p = new URLSearchParams();
-  if(currentRole!=='all') p.set('role', currentRole);
-  const q = String(qInput?.value||'').trim(); if(q) p.set('q', q);
-  // Filtros avanzados si rol es transportista (o all, los aplico de todas formas si están cargados)
-  const cargas = String(cargasIn?.value||'').split(',').map(s=>s.trim()).filter(Boolean).join(','); if(cargas) p.set('cargas', cargas);
-  const vehiculos = String(vehiculosIn?.value||'').split(',').map(s=>s.trim()).filter(Boolean).join(','); if(vehiculos) p.set('vehiculos', vehiculos);
-  if(seguroChk?.checked) p.set('seguroOk','1');
-  if(senasaChk?.checked) p.set('senasa','1');
-  if(imoChk?.checked) p.set('imo','1');
-  const alc = String(alcanceIn?.value||'').trim(); if(alc) p.set('alcance', alc);
-  // Llamado al backend
+
+  // Mostrar/ocultar filtros de transportista
+  const currentRole = roleSel?.value || 'all';
+  if(boxTransp) boxTransp.style.display = currentRole==='transportista' ? 'block' : 'none';
+
+  // Cargar usuarios
   let users = [];
   try{
-    const res = await fetch(`${API.base}/api/users${p.toString()?`?${p.toString()}`:''}`, { credentials: 'include' });
-    if(!res.ok) throw new Error(await parseErr(res));
-    users = await res.json();
+    const params = {
+      role: currentRole==='all' ? '' : currentRole,
+      q: qInput?.value?.trim() || '',
+      cargas: cargasIn?.value || '',
+      vehiculos: vehiculosIn?.value || '',
+      seguroOk: seguroChk?.checked ? '1' : '',
+      senasa: senasaChk?.checked ? '1' : '',
+      imo: imoChk?.checked ? '1' : '',
+      alcance: alcanceIn?.value || ''
+    };
+    users = await fetchAdminUsers(params);
+    if(!Array.isArray(users)) users = [];
   }catch(e){
-    // Fallback local si falla la API: usar state.users y filtrar similar
-    const src = (state.users||[]);
-    users = src.filter(u=>{
-      if(currentRole!=='all' && u.role!==currentRole) return false;
-      if(q){ const s=(u.name||'')+' '+(u.email||''); if(!s.toLowerCase().includes(q.toLowerCase())) return false; }
-      if(currentRole==='transportista' || cargas||vehiculos||alc||seguroChk?.checked||senasaChk?.checked||imoChk?.checked){
-        const pj = u.perfil||{};
-        const cargArr = cargas? cargas.split(','): [];
-        const vehArr = vehiculos? vehiculos.split(','): [];
-        if(cargArr.length){ const arr = Array.isArray(pj.cargas)? pj.cargas: []; if(!cargArr.some(x=> arr.includes(x))) return false; }
-        if(vehArr.length){ const arr = Array.isArray(pj.vehiculos)? pj.vehiculos: []; if(!vehArr.some(x=> arr.includes(x))) return false; }
-        if(seguroChk?.checked && !pj.seguroOk) return false;
-        if(senasaChk?.checked && !pj.senasa) return false;
-        if(imoChk?.checked && !pj.imo) return false;
-        if(alc && String(pj.alcance||'').toLowerCase().indexOf(alc.toLowerCase())<0) return false;
-      }
-      return true;
-    });
+    console.warn('Fallo /api/users, uso local', e);
+    users = (state.users||[]);
   }
+
+  // Persistir para perfil
+  state.adminUsers = users;
+  save();
+
   // Render
   ul.innerHTML = users.length ? users.map(u=>{
     const initials = (u.name||'?').split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase();
