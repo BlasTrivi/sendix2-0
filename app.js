@@ -1506,8 +1506,27 @@ function renderMetrics(){
           const ids = items.filter(c=>c.status!=='invoiced').map(c=>c.id);
           if(!ids.length) return;
           if(!confirm(`Marcar ${ids.length} comisión(es) como facturadas para ${selected}?`)) return;
-          state.commissions.forEach(c=>{ if(ids.includes(c.id)){ c.status='invoiced'; c.invoiceAt = new Date().toISOString(); } });
-          save(); renderMetrics();
+          const ts = new Date().toISOString();
+          const originalText = btnInvoicePeriod.textContent;
+          btnInvoicePeriod.textContent = 'Marcando…';
+          btnInvoicePeriod.disabled = true;
+          (async()=>{
+            try{
+              // Intentar actualizar en backend en paralelo
+              await Promise.allSettled(ids.map(id=> API.updateCommission(id, { status:'invoiced', invoiceAt: ts })));
+              // Refrescar desde API y re-render
+              await syncCommissionsFromAPI();
+              renderMetrics();
+            }catch{
+              // Fallback local si falla la API
+              state.commissions.forEach(c=>{ if(ids.includes(c.id)){ c.status='invoiced'; c.invoiceAt = ts; } });
+              save();
+              renderMetrics();
+            }finally{
+              btnInvoicePeriod.textContent = originalText;
+              // El render vuelve a crear el botón y setea disabled según corresponda
+            }
+          })();
         };
       }
       if(btnExportCsv){
