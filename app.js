@@ -1399,6 +1399,7 @@ function renderMetrics(){
 
   // Comisiones (SENDIX)
   const comms = state.commissions||[];
+  const dateForPeriod = (c)=> new Date(c.invoiceAt || c.createdAt);
   const sum = (arr)=> arr.reduce((a,b)=>a+Number(b||0),0);
   const pendingAmt = sum(comms.filter(c=>c.status==='pending').map(c=>c.amount));
   const now = Date.now();
@@ -1419,7 +1420,7 @@ function renderMetrics(){
       return `<li class="row">
         <div>
           <div><strong>${c.carrier}</strong> <span class="muted">→ ${l?.origen||'?'} → ${l?.destino||'?'} · ${l?.owner||'-'}</span></div>
-          <div class="muted">Oferta $${c.price.toLocaleString('es-AR')} · Comisión (10%) $${c.amount.toLocaleString('es-AR')}</div>
+          <div class="muted">Oferta $${c.price.toLocaleString('es-AR')} · Comisión (10%) $${c.amount.toLocaleString('es-AR')} · Fecha ${formatDateForCsv(c.invoiceAt||c.createdAt)}</div>
         </div>
         <div class="row">${status} ${btn}</div>
       </li>`;
@@ -1455,13 +1456,13 @@ function renderMetrics(){
       const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       periodInput.value = ym;
     }
-    // Lista de transportistas a partir de comisiones
-    const carriers = Array.from(new Set((state.commissions||[]).map(c=>c.carrier))).sort((a,b)=>a.localeCompare(b));
+    // Lista de transportistas a partir de comisiones (usar snapshot local comms)
+    const carriers = Array.from(new Set((comms||[]).map(c=>c.carrier).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
     carrierList.innerHTML = carriers.length ? carriers.map(name=>{
       const selected = adminWrap.dataset.selectedCarrier===name;
       // Sumar del período/corte seleccionado para badge
       const {start,end} = periodRange(periodInput.value, cutInput?.value||'full');
-      const totalMonth = sum((state.commissions||[]).filter(c=>c.carrier===name && new Date(c.createdAt)>=start && new Date(c.createdAt)<end).map(c=>c.amount));
+      const totalMonth = sum((comms||[]).filter(c=>c.carrier===name && dateForPeriod(c)>=start && dateForPeriod(c)<end).map(c=>c.amount));
       const badge = totalMonth ? `<span class="badge-pill">$${totalMonth.toLocaleString('es-AR')}</span>` : '';
       return `<li class="row ${selected?'active':''}" data-carrier="${name}"><strong>${name}</strong>${badge}</li>`;
     }).join('') : '<li class="muted">Sin transportistas aún.</li>';
@@ -1484,8 +1485,9 @@ function renderMetrics(){
       if(btnInvoicePeriod) btnInvoicePeriod.disabled = true;
     } else {
       carrierEmpty.style.display = 'none';
-  const {start,end} = periodRange(periodInput.value, cutInput?.value||'full');
-      const items = (state.commissions||[]).filter(c=>c.carrier===selected && new Date(c.createdAt)>=start && new Date(c.createdAt)<end);
+      const {start,end} = periodRange(periodInput.value, cutInput?.value||'full');
+      // Filtrar por fecha de invoice si existe; si no, por createdAt
+      const items = (comms||[]).filter(c=> c.carrier===selected && dateForPeriod(c)>=start && dateForPeriod(c)<end );
       const total = sum(items.map(c=>c.amount));
       if(carrierTotalEl) carrierTotalEl.textContent = '$'+ total.toLocaleString('es-AR');
       if(carrierCountEl) carrierCountEl.textContent = String(items.length);
@@ -1495,7 +1497,7 @@ function renderMetrics(){
         return `<li class="row">
           <div>
             <div><strong>${l?.origen||'?'} → ${l?.destino||'?'}</strong> <span class="muted">(${l?.owner||'-'})</span></div>
-            <div class="muted">Oferta $${c.price.toLocaleString('es-AR')} · Comisión 10% $${c.amount.toLocaleString('es-AR')}</div>
+            <div class="muted">Oferta $${c.price.toLocaleString('es-AR')} · Comisión 10% $${c.amount.toLocaleString('es-AR')} · Fecha ${formatDateForCsv(c.invoiceAt||c.createdAt)}</div>
           </div>
           <div>${status}</div>
         </li>`;
@@ -1543,7 +1545,7 @@ function renderMetrics(){
               l?.owner||'',
               l?.origen||'',
               l?.destino||'',
-              formatDateForCsv(c.createdAt),
+              formatDateForCsv(c.invoiceAt||c.createdAt),
               Number(c.price||0),
               Number(c.amount||0),
               c.status,
