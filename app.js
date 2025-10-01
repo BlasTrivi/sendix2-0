@@ -35,6 +35,51 @@ const state = {
   commissions: []
 };
 
+// --- Socket.IO cliente ---
+let socket = null;
+function ensureSocket(){
+  try{
+    if(socket || typeof io==='undefined') return;
+    socket = io(API.base, { withCredentials: true });
+    // Unirme a hilos relevantes cuando tenga sesión
+    socket.on('connect', ()=>{
+      try{
+        const approved = (state.proposals||[]).filter(p=>p.status==='approved').map(p=>p.id);
+        if(approved.length) socket.emit('chat:joinMany', { proposalIds: approved });
+      }catch{}
+    });
+    // Nuevo mensaje entrante
+    socket.on('chat:message', (m)=>{
+      try{
+        const pId = m?.proposalId; if(!pId) return;
+        const p = (state.proposals||[]).find(x=>x.id===pId); if(!p) return;
+        const tId = threadIdFor(p);
+        const mapped = {
+          id: m.id,
+          threadId: tId,
+          from: m.from?.name || '-',
+          role: m.from?.role || '-',
+          text: m.text||'',
+          ts: m.createdAt ? new Date(m.createdAt).getTime() : Date.now(),
+          replyToId: m.replyToId || null,
+          attach: Array.isArray(m.attachments)? m.attachments: []
+        };
+        state.messages.push(mapped);
+        save();
+        const route = (location.hash.replace('#','')||'home');
+        if(route==='conversaciones'){
+          renderChat();
+          renderThreads();
+        }
+      }catch{}
+    });
+    // Lectura por otro usuario (podríamos refrescar contadores)
+    socket.on('chat:read', (_evt)=>{
+      try{ const route=(location.hash.replace('#','')||'home'); if(route==='conversaciones') renderThreads(); }catch{}
+    });
+  }catch{}
+}
+
 function save(){ /* modo API: sin persistencia local */ }
 
 // --- Sesión (cookies httpOnly) ---
@@ -56,6 +101,8 @@ async function tryRestoreSession(){
     const me = await API.me();
     if(me && me.user){ setSession('', me.user); }
   }catch{}
+  // Inicializar socket después de intentar restaurar sesión
+  ensureSocket();
 }
 
 function isValidEmail(email){
@@ -521,6 +568,13 @@ async function parseErr(res){
     try{ const j = JSON.parse(t); return j.error||t||res.statusText; }catch{ return t||res.statusText; }
   }catch{ return res.statusText || 'Error'; }
 }
+function parseErrMessage(err){
+  try{
+    if(typeof err==='string') return err;
+    if(err && err.message) return String(err.message);
+    return 'Error';
+  }catch{ return 'Error'; }
+}
 const API = {
   base: getApiBase(),
   // --- Auth (nuevo) ---
@@ -609,6 +663,27 @@ const API = {
   async updateCommission(id, payload){
   const res = await fetch(`${API.base}/api/commissions/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload), credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  // ---- Chat ----
+  async listMessages(proposalId){
+    const res = await fetch(`${API.base}/api/proposals/${proposalId}/messages`, { headers: { ...authHeaders() }, credentials: 'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
+    return res.json();
+  },
+  async sendMessage(proposalId, payload){
+    const res = await fetch(`${API.base}/api/proposals/${proposalId}/messages`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload), credentials: 'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
+    return res.json();
+  },
+  async markRead(proposalId){
+    const res = await fetch(`${API.base}/api/proposals/${proposalId}/read`, { method:'POST', headers: { ...authHeaders() }, credentials: 'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
+    return res.json();
+  },
+  async chatUnread(){
+    const res = await fetch(`${API.base}/api/chat/unread`, { headers: { ...authHeaders() }, credentials: 'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   }
 };
@@ -1169,28 +1244,27 @@ function renderInbox(){
 // SENDIX/Empresa/Transportista: lista de chats aprobados
 function renderThreads(){
   const navBadge = document.getElementById('nav-unread');
-  const myThreads = threadsForCurrentUser();
-  const totalUnread = myThreads.map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0);
-  if(navBadge){ navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
   const ul = document.getElementById('threads');
   const q = (document.getElementById('chat-search')?.value||'').toLowerCase();
-  // Precomputar último timestamp por hilo para evitar O(n^2)
-  const lastByThread = new Map();
-  for(let i=state.messages.length-1;i>=0;i--){
-    const m = state.messages[i];
-    if(!lastByThread.has(m.threadId)) lastByThread.set(m.threadId, m.ts);
-  }
-  const items = myThreads.map(p=>{
-    const l = state.loads.find(x=>x.id===p.loadId);
-    const title = `${l?.origen} → ${l?.destino}`;
-    const sub = `Emp: ${l?.owner} · Transp: ${p.carrier} · Dim: ${l?.dimensiones||'-'}`;
-    const unread = computeUnread(threadIdFor(p));
-    const match = (title+' '+sub).toLowerCase().includes(q);
-    const tId = threadIdFor(p);
-    const lastTs = lastByThread.get(tId) || (p.createdAt ? new Date(p.createdAt).getTime() : 0);
-    return {p, l, title, sub, unread, match, lastTs};
-  }).filter(x=>x.match).sort((a,b)=> b.lastTs - a.lastTs);
-  ul.innerHTML = items.length ? items.map(({p, l, title, sub, unread})=>`
+  // Sincronizar datos base en segundo plano
+  (async()=>{ try{ await syncProposalsFromAPI(); await syncLoadsFromAPI(); ensureSocket(); if(socket){ const approved=(state.proposals||[]).filter(p=>p.status==='approved').map(p=>p.id); if(approved.length) socket.emit('chat:joinMany', { proposalIds: approved }); } }catch{} })();
+  const myThreads = threadsForCurrentUser();
+  // Obtener no leídos/último mensaje desde el backend y renderizar
+  (async()=>{
+    let unreadMap = {};
+    try{ unreadMap = await API.chatUnread(); }catch{}
+    const totalUnread = myThreads.map(p=> (unreadMap[p.id]?.unread||0)).reduce((a,b)=>a+b,0);
+    if(navBadge){ navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
+    const items = myThreads.map(p=>{
+      const l = state.loads.find(x=>x.id===p.loadId);
+      const title = `${l?.origen} → ${l?.destino}`;
+      const sub = `Emp: ${l?.owner} · Transp: ${p.carrier} · Dim: ${l?.dimensiones||'-'}`;
+      const unread = unreadMap[p.id]?.unread || 0;
+      const match = (title+' '+sub).toLowerCase().includes(q);
+      const lastTs = unreadMap[p.id]?.lastMessageAt ? new Date(unreadMap[p.id].lastMessageAt).getTime() : (p.createdAt ? new Date(p.createdAt).getTime() : 0);
+      return {p, l, title, sub, unread, match, lastTs};
+    }).filter(x=>x.match).sort((a,b)=> b.lastTs - a.lastTs);
+    ul.innerHTML = items.length ? items.map(({p, l, title, sub, unread})=>`
     <li class="thread-item" data-chat="${p.id}">
       <div class="avatar">${(l?.owner||'?')[0]||'?'}</div>
       <div>
@@ -1200,18 +1274,24 @@ function renderThreads(){
       <div class="thread-badge">${unread?`<span class="badge-pill">${unread}</span>`:''}</div>
     </li>
   `).join('') : '<li class="muted" style="padding:12px">Sin conversaciones</li>';
-  ul.querySelectorAll('[data-chat]').forEach(li=>li.addEventListener('click', ()=>openChatByProposalId(li.dataset.chat)));
-  const searchEl = document.getElementById('chat-search');
-  if(searchEl) searchEl.oninput = ()=>renderThreads();
-  // Marcar todo como leído
-  const markAll = document.getElementById('mark-all-read');
-  if(markAll) markAll.onclick = ()=>{
-    threadsForCurrentUser().forEach(p=>markThreadRead(threadIdFor(p)));
-    renderThreads();
-  };
-  // Fades en la lista de hilos
-  updateThreadsFades();
-  ul.onscroll = updateThreadsFades;
+    ul.querySelectorAll('[data-chat]').forEach(li=>li.addEventListener('click', ()=>openChatByProposalId(li.dataset.chat)));
+    const searchEl = document.getElementById('chat-search');
+    if(searchEl) searchEl.oninput = ()=>renderThreads();
+    // Marcar todo como leído (en servidor y local)
+    const markAll = document.getElementById('mark-all-read');
+    if(markAll) markAll.onclick = ()=>{
+      (async()=>{
+        for(const p of threadsForCurrentUser()){
+          try{ await API.markRead(p.id); }catch{}
+          markThreadRead(threadIdFor(p));
+        }
+        renderThreads();
+      })();
+    };
+    // Fades en la lista de hilos
+    updateThreadsFades();
+    ul.onscroll = updateThreadsFades;
+  })();
 }
 
 function updateThreadsFades(){
@@ -1487,9 +1567,36 @@ function renderChat(){
   const l = state.loads.find(x=>x.id===p.loadId);
   title.textContent = `${l.origen} → ${l.destino}`;
   topic.textContent = `Empresa: ${l.owner} · Transportista: ${p.carrier} · Dimensiones: ${l.dimensiones||'-'} · Nexo: SENDIX`;
+  // Sincronizar mensajes del backend para esta propuesta y re-render si cambian
+  (async()=>{
+    try{
+      const serverMsgs = await API.listMessages(p.id);
+      const mapped = serverMsgs.map(m=>({
+        id: m.id,
+        threadId: state.activeThread,
+        from: m.from?.name || '-',
+        role: m.from?.role || '-',
+        text: m.text || '',
+        ts: m.createdAt ? new Date(m.createdAt).getTime() : Date.now(),
+        replyToId: m.replyToId || null,
+        attach: Array.isArray(m.attachments) ? m.attachments : []
+      }));
+      const localThreadMsgs = state.messages.filter(mm=> mm.threadId===state.activeThread);
+      const localLast = localThreadMsgs.length? localThreadMsgs[localThreadMsgs.length-1].ts : 0;
+      const srvLast = mapped.length? mapped[mapped.length-1].ts : 0;
+      if(localThreadMsgs.length !== mapped.length || localLast !== srvLast){
+        // Reemplazar los del hilo activo
+        state.messages = state.messages.filter(mm=> mm.threadId!==state.activeThread).concat(mapped);
+        save();
+        renderChat(); // re-render con datos nuevos
+        renderThreads(); // actualizar badges
+        return;
+      }
+    }catch{}
+  })();
   const msgs = state.messages.filter(m=>m.threadId===state.activeThread).sort((a,b)=>a.ts-b.ts);
   box.innerHTML = msgs.map(m=>{
-    const reply = m.replyTo ? msgs.find(x=>x.ts===m.replyTo) : null;
+    const reply = m.replyToId ? msgs.find(x=>x.id===m.replyToId) : null;
     const replyHtml = reply ? `<div class="bubble-reply"><strong>${reply.from}</strong>: ${escapeHtml(reply.text).slice(0,120)}${reply.text.length>120?'…':''}</div>` : '';
     const atts = Array.isArray(m.attach)||m.attach? (m.attach||[]) : [];
     const attHtml = atts.length? `<div class="attachments">${atts.map(src=>`<img src="${src}" alt="adjunto"/>`).join('')}</div>` : '';
@@ -1502,7 +1609,8 @@ function renderChat(){
   }).join('') || '<div class="muted">Sin mensajes aún.</div>';
   box.scrollTop = box.scrollHeight;
   updateChatFades();
-  markThreadRead(state.activeThread);
+  // Marcar leído en servidor y local
+  (async()=>{ try{ await API.markRead(p.id); }catch{}; markThreadRead(state.activeThread); })();
   const form = document.getElementById('chat-form');
   const ta = document.getElementById('chat-textarea');
   // Autosize textarea
@@ -1537,8 +1645,8 @@ function renderChat(){
   };
 
   // Reply a mensaje
-  let replyToTs = null;
-  function setReply(m){ replyToTs = m?.ts||null; if(replyToTs){ replyBar.style.display='flex'; replySnippet.textContent = m.text.slice(0,120); } else { replyBar.style.display='none'; replySnippet.textContent=''; } }
+  let replyToMsg = null;
+  function setReply(m){ replyToMsg = m||null; if(replyToMsg){ replyBar.style.display='flex'; replySnippet.textContent = m.text.slice(0,120); } else { replyBar.style.display='none'; replySnippet.textContent=''; } }
   const replyCancel = document.getElementById('reply-cancel');
   if(replyCancel) replyCancel.onclick = ()=> setReply(null);
   // Menú contextual sobre mensajes
@@ -1592,14 +1700,29 @@ function renderChat(){
     const data = Object.fromEntries(new FormData(form).entries());
     const text = String(data.message||'').trim();
     if(!text) return;
-    const msg = { threadId: state.activeThread, from: state.user.name, role: state.user.role, text, ts: Date.now() };
-    if(replyToTs) msg.replyTo = replyToTs;
-    if(tempAttach.length) msg.attach = [...tempAttach];
-    state.messages.push(msg);
-    save();
-    form.reset(); autoresize(); hideTyping(); setReply(null);
-    tempAttach.splice(0); attachPreviews.innerHTML=''; attachPreviews.style.display='none'; inputAttach.value='';
-    renderChat(); markThreadRead(state.activeThread); renderThreads();
+    (async()=>{
+      try{
+        const payload = { text, attachments: tempAttach.length? [...tempAttach] : undefined };
+        if(replyToMsg?.id) payload.replyToId = replyToMsg.id;
+        const created = await API.sendMessage(p.id, payload);
+        const mapped = {
+          id: created.id,
+          threadId: state.activeThread,
+          from: created.from?.name || state.user.name,
+          role: created.from?.role || state.user.role,
+          text: created.text,
+          ts: created.createdAt ? new Date(created.createdAt).getTime() : Date.now(),
+          replyToId: created.replyToId || null,
+          attach: Array.isArray(created.attachments) ? created.attachments : (tempAttach||[])
+        };
+        state.messages.push(mapped);
+        save();
+        form.reset(); autoresize(); hideTyping(); setReply(null);
+        tempAttach.splice(0); attachPreviews.innerHTML=''; attachPreviews.style.display='none'; inputAttach.value='';
+        renderChat();
+        renderThreads();
+      }catch(err){ alert(parseErrMessage(err)); }
+    })();
   };
   document.getElementById('open-related-tracking').onclick = ()=>{
     state.activeShipmentProposalId = p.id;
@@ -1857,7 +1980,12 @@ function renderHome(){
   // sincronizar en segundo plano para actualizar badges
   (async()=>{ try{ await syncProposalsFromAPI(); }catch{} })();
   const navBadge = document.getElementById('nav-unread');
-  if(state.user?.role==='sendix' && navBadge){ const totalUnread = state.proposals.filter(p=>p.status==='approved').map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0); navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
+  if(state.user?.role==='sendix' && navBadge){
+    (async()=>{
+      try{ const m = await API.chatUnread(); const totalUnread = state.proposals.filter(p=>p.status==='approved').map(p=> (m[p.id]?.unread||0)).reduce((a,b)=>a+b,0); navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
+      catch{ const totalUnread = state.proposals.filter(p=>p.status==='approved').map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0); navBadge.style.display = totalUnread? 'inline-block':'none'; navBadge.textContent = totalUnread; }
+    })();
+  }
   document.getElementById('cards-empresa').style.display = state.user?.role==='empresa' ? 'grid' : 'none';
   document.getElementById('cards-transportista').style.display = state.user?.role==='transportista' ? 'grid' : 'none';
   document.getElementById('cards-sendix').style.display = state.user?.role==='sendix' ? 'grid' : 'none';
@@ -1903,9 +2031,14 @@ function renderHome(){
   if(state.user?.role==='sendix'){
     const moderacion = state.proposals.filter(p=>p.status==='pending').length;
     const threads = state.proposals.filter(p=>p.status==='approved');
-    const unread = threads.map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0);
     const b1 = document.getElementById('badge-sendix-moderacion');
     const b2 = document.getElementById('badge-sendix-conversaciones');
+    (async()=>{
+      let unread = 0;
+      try{ const m = await API.chatUnread(); unread = threads.map(p=> (m[p.id]?.unread||0)).reduce((a,b)=>a+b,0); }
+      catch{ unread = threads.map(p=>computeUnread(threadIdFor(p))).reduce((a,b)=>a+b,0); }
+      if(b2){ const prev=Number(b2.textContent||'0'); b2.style.display = unread? 'inline-block':'none'; b2.textContent = unread; if(unread!==prev && unread>0){ b2.classList.remove('pulse-badge'); void b2.offsetWidth; b2.classList.add('pulse-badge'); } }
+    })();
     if(b1){ const prev=Number(b1.textContent||'0'); b1.style.display = moderacion? 'inline-block':'none'; b1.textContent = moderacion; if(moderacion!==prev && moderacion>0){ b1.classList.remove('pulse-badge'); void b1.offsetWidth; b1.classList.add('pulse-badge'); } }
     if(b2){ const prev=Number(b2.textContent||'0'); b2.style.display = unread? 'inline-block':'none'; b2.textContent = unread; if(unread!==prev && unread>0){ b2.classList.remove('pulse-badge'); void b2.offsetWidth; b2.classList.add('pulse-badge'); } }
   }

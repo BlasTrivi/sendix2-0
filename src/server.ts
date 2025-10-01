@@ -10,6 +10,8 @@ import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
+import http from 'node:http';
+import { Server as SocketIOServer } from 'socket.io';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -76,6 +78,56 @@ function requireRole(role: JwtUser['role']){
 }
 
 app.use(decodeAuth);
+
+// --- Socket.IO ---
+const httpServer = http.createServer(app);
+const io = new SocketIOServer(httpServer, {
+  cors: corsOrigins ? { origin: corsOrigins, credentials: true } : { origin: true, credentials: true }
+});
+
+function parseCookieHeader(cookieHeader?: string){
+  const out: Record<string,string> = {};
+  if(!cookieHeader) return out;
+  cookieHeader.split(';').forEach(part=>{
+    const idx = part.indexOf('=');
+    if(idx>0){ const k = part.slice(0,idx).trim(); const v = decodeURIComponent(part.slice(idx+1).trim()); out[k]=v; }
+  });
+  return out;
+}
+
+io.use((socket, next)=>{
+  try{
+    const cookies = parseCookieHeader(socket.handshake.headers.cookie as string|undefined);
+    const token = cookies['token'];
+    if(token){
+      const payload = jwt.verify(token, JWT_SECRET) as JwtUser;
+      (socket.data as any).user = payload;
+    }
+    next();
+  }catch(err){ next(); }
+});
+
+io.on('connection', (socket)=>{
+  const u = (socket.data as any).user as JwtUser | undefined;
+  socket.on('chat:join', async (payload: { proposalId: string })=>{
+    try{
+      const id = String(payload?.proposalId||'');
+      if(!id) return;
+      const p = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
+      if(!p) return;
+      if(!userCanAccessProposal(u, p as any)) return;
+      socket.join(`proposal:${id}`);
+    }catch{}
+  });
+  socket.on('chat:joinMany', async (payload: { proposalIds: string[] })=>{
+    try{
+      const ids = Array.isArray(payload?.proposalIds) ? payload.proposalIds : [];
+      if(!ids.length) return;
+      const rows = await prisma.proposal.findMany({ where: { id: { in: ids } }, include: { load: true } });
+      rows.forEach(p=>{ if(userCanAccessProposal(u, p as any)) socket.join(`proposal:${p.id}`); });
+    }catch{}
+  });
+});
 
 // Validaciones comunes (datos de perfil)
 const PhoneSchema = z.string().trim().min(6).max(32).regex(/^[+0-9()\-\s]+$/, 'Formato de teléfono inválido');
@@ -515,12 +567,26 @@ app.post('/api/proposals/:id/reject', requireRole('sendix'), async (req, res) =>
 app.post('/api/proposals/:id/select', requireRole('empresa'), async (req, res) => {
   try{
     const id = String(req.params.id);
-    const winner = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
+    const winner = await prisma.proposal.findUnique({ where: { id }, include: { load: true, thread: true } });
     if(!winner) return res.status(404).json({ error: 'Not found' });
     await prisma.$transaction([
       prisma.proposal.update({ where: { id }, data: { status: 'approved', shipStatus: winner.shipStatus ?? 'pendiente' } }),
       prisma.proposal.updateMany({ where: { loadId: winner.loadId, NOT: { id } }, data: { status: 'rejected' } })
     ]);
+    // Asegurar que exista un Thread para esta propuesta seleccionada
+    try{
+      if(!winner.thread){
+        // Buscar thread existente por (loadId, carrierId) o crearlo y vincularlo a la propuesta
+        const existing = await prisma.thread.findFirst({ where: { loadId: winner.loadId, carrierId: winner.carrierId } });
+        if(existing){
+          await prisma.thread.update({ where: { id: existing.id }, data: { proposalId: id } });
+        } else {
+          await prisma.thread.create({ data: { loadId: winner.loadId, carrierId: winner.carrierId, proposalId: id } });
+        }
+      }
+    }catch(err){
+      console.warn('No se pudo asegurar Thread al seleccionar propuesta:', err);
+    }
     // Comisión (10%) si no existe
     const COMM_RATE = 0.10;
     const existing = await prisma.commission.findUnique({ where: { proposalId: id } });
@@ -537,6 +603,169 @@ app.post('/api/proposals/:id/select', requireRole('empresa'), async (req, res) =
     const updated = await prisma.proposal.findUnique({ where: { id }, include: { commission: true } });
     res.json(updated);
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
+});
+
+// ---- API: Chat (Threads/Messages/Reads) ----
+
+async function ensureThreadForProposal(proposalId: string){
+  const p = await prisma.proposal.findUnique({ where: { id: proposalId }, include: { load: true, carrier: true, thread: true } });
+  if(!p) throw Object.assign(new Error('Proposal not found'), { status: 404 });
+  // Opcional: limitar chat a sólo propuestas aprobadas
+  if(p.status !== 'approved') throw Object.assign(new Error('Chat no disponible hasta aprobar la propuesta'), { status: 400 });
+  if(p.thread) return p.thread;
+  // Reutilizar si existe por (loadId, carrierId); si no, crear y vincular a proposal
+  const existing = await prisma.thread.findFirst({ where: { loadId: p.loadId, carrierId: p.carrierId } });
+  if(existing){
+    const up = await prisma.thread.update({ where: { id: existing.id }, data: { proposalId: proposalId } });
+    return up;
+  }
+  return prisma.thread.create({ data: { loadId: p.loadId, carrierId: p.carrierId, proposalId: proposalId } });
+}
+
+function userCanAccessProposal(u: JwtUser | null | undefined, p: { load: { ownerId: string }, carrierId: string }){
+  if(!u) return false;
+  if(u.role === 'sendix') return true;
+  if(u.role === 'empresa') return u.id === p.load.ownerId;
+  if(u.role === 'transportista') return u.id === p.carrierId;
+  return false;
+}
+
+// Listar mensajes de una propuesta (asegura thread)
+app.get('/api/proposals/:id/messages', async (req, res) => {
+  try{
+    const id = String(req.params.id);
+    const p = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
+    if(!p) return res.status(404).json({ error: 'Not found' });
+    if(!userCanAccessProposal(req.user, p)) return res.status(403).json({ error: 'Forbidden' });
+    const th = await ensureThreadForProposal(id);
+    const rows = await prisma.message.findMany({
+      where: { threadId: th.id },
+      orderBy: { createdAt: 'asc' },
+      include: { fromUser: { select: { id: true, name: true, role: true } } }
+    });
+    res.json(rows.map(m => ({
+      id: m.id,
+      text: m.text,
+      createdAt: m.createdAt,
+      from: { id: m.fromUser.id, name: m.fromUser.name, role: m.fromUser.role },
+      replyToId: m.replyToId,
+      attachments: m.attachments || null
+    })));
+  }catch(err:any){
+    const status = (err && err.status) || 400;
+    res.status(status).json({ error: err?.message || String(err) });
+  }
+});
+
+// Enviar mensaje a una propuesta
+const MessageCreateSchema = z.object({ text: z.string().trim().min(1), replyToId: z.string().optional(), attachments: z.any().optional() });
+app.post('/api/proposals/:id/messages', async (req, res) => {
+  try{
+    if(!req.user) return res.status(401).json({ error: 'Auth required' });
+    const id = String(req.params.id);
+    const body = MessageCreateSchema.parse(req.body);
+    const p = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
+    if(!p) return res.status(404).json({ error: 'Not found' });
+    if(!userCanAccessProposal(req.user, p)) return res.status(403).json({ error: 'Forbidden' });
+    const th = await ensureThreadForProposal(id);
+    const created = await prisma.message.create({
+      data: {
+        threadId: th.id,
+        fromUserId: req.user.id,
+        text: body.text,
+        replyToId: body.replyToId ?? undefined,
+        attachments: body.attachments ?? undefined
+      },
+      include: { fromUser: { select: { id: true, name: true, role: true } } }
+    });
+    // Marcar lectura del emisor
+    await prisma.read.upsert({
+      where: { threadId_userId: { threadId: th.id, userId: req.user.id } },
+      update: { lastReadAt: new Date() },
+      create: { threadId: th.id, userId: req.user.id, lastReadAt: new Date() }
+    });
+    // Emitir evento en tiempo real a la sala de la propuesta
+    try{
+      io.to(`proposal:${id}`).emit('chat:message', {
+        proposalId: id,
+        id: created.id,
+        text: created.text,
+        createdAt: created.createdAt,
+        from: { id: created.fromUser.id, name: created.fromUser.name, role: created.fromUser.role },
+        replyToId: created.replyToId,
+        attachments: created.attachments || null
+      });
+    }catch{}
+    res.status(201).json({
+      id: created.id,
+      text: created.text,
+      createdAt: created.createdAt,
+      from: { id: created.fromUser.id, name: created.fromUser.name, role: created.fromUser.role },
+      replyToId: created.replyToId,
+      attachments: created.attachments || null
+    });
+  }catch(err:any){
+    const status = (err && err.status) || 400;
+    res.status(status).json({ error: err?.message || String(err) });
+  }
+});
+
+// Marcar hilo como leído por propuesta
+app.post('/api/proposals/:id/read', async (req, res) => {
+  try{
+    if(!req.user) return res.status(401).json({ error: 'Auth required' });
+    const id = String(req.params.id);
+    const p = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
+    if(!p) return res.status(404).json({ error: 'Not found' });
+    if(!userCanAccessProposal(req.user, p)) return res.status(403).json({ error: 'Forbidden' });
+    const th = await ensureThreadForProposal(id);
+    await prisma.read.upsert({
+      where: { threadId_userId: { threadId: th.id, userId: req.user.id } },
+      update: { lastReadAt: new Date() },
+      create: { threadId: th.id, userId: req.user.id, lastReadAt: new Date() }
+    });
+    try{ io.to(`proposal:${id}`).emit('chat:read', { proposalId: id, userId: req.user.id, at: new Date().toISOString() }); }catch{}
+    res.json({ ok: true });
+  }catch(err:any){
+    const status = (err && err.status) || 400;
+    res.status(status).json({ error: err?.message || String(err) });
+  }
+});
+
+// Resumen de no leídos y último mensaje por propuesta para el usuario actual
+app.get('/api/chat/unread', async (req, res) => {
+  try{
+    if(!req.user) return res.status(401).json({ error: 'Auth required' });
+    // Buscar threads relevantes según rol
+    let proposals: any[] = [];
+    if(req.user.role === 'sendix'){
+      proposals = await prisma.proposal.findMany({ where: { status: 'approved' }, select: { id:true, loadId:true, carrierId:true, thread: { select: { id:true } } } });
+    } else if(req.user.role === 'empresa'){
+      proposals = await prisma.proposal.findMany({ where: { status: 'approved', load: { ownerId: req.user.id } }, select: { id:true, loadId:true, carrierId:true, thread: { select: { id:true } } } });
+    } else if(req.user.role === 'transportista'){
+      proposals = await prisma.proposal.findMany({ where: { status: 'approved', carrierId: req.user.id }, select: { id:true, loadId:true, carrierId:true, thread: { select: { id:true } } } });
+    }
+    // Asegurar threads para todas
+    const withThreads = [] as { id: string, threadId: string }[];
+    for(const p of proposals){
+      const th = p.thread ? p.thread : await ensureThreadForProposal(p.id);
+      withThreads.push({ id: p.id, threadId: th.id });
+    }
+    // Obtener lastRead por usuario e hilo
+    const reads = await prisma.read.findMany({ where: { userId: req.user.id, threadId: { in: withThreads.map(x=>x.threadId) } } });
+    const lastReadMap = new Map(reads.map(r=> [r.threadId, r.lastReadAt] ));
+    // Obtener últimos mensajes y conteo de no leídos
+    const result: Record<string, { unread: number, lastMessageAt: string | null }> = {};
+    for(const x of withThreads){
+      const lastReadAt = lastReadMap.get(x.threadId) || new Date(0);
+      const lastMsg = await prisma.message.findFirst({ where: { threadId: x.threadId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+      const unread = await prisma.message.count({ where: { threadId: x.threadId, createdAt: { gt: lastReadAt }, NOT: { fromUserId: req.user.id } } });
+      result[x.id] = { unread, lastMessageAt: lastMsg?.createdAt?.toISOString() || null };
+    }
+    res.json(result);
+  }catch(err:any){
+    res.status(400).json({ error: err?.message || String(err) });
+  }
 });
 
 // ---- API: Commissions ----
@@ -602,7 +831,7 @@ app.get('/', (_req, res) => res.sendFile(path.join(rootDir, 'index.html')));
 app.get('/reset-password', (_req, res) => res.sendFile(path.join(rootDir, 'index.html')));
 
 const PORT = Number(process.env.PORT) || 4000;
-const server = app.listen(PORT, () => {
+const server = httpServer.listen(PORT, () => {
   const opts = getCookieOpts();
   console.log(`✅ API + Web en http://localhost:${PORT}`);
   console.log('CORS_ORIGIN:', corsOrigins || '(reflect origin)');
