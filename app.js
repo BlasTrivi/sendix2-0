@@ -2046,7 +2046,6 @@ function renderHome(){
       if(b2){ const prev=Number(b2.textContent||'0'); b2.style.display = unread? 'inline-block':'none'; b2.textContent = unread; if(unread!==prev && unread>0){ b2.classList.remove('pulse-badge'); void b2.offsetWidth; b2.classList.add('pulse-badge'); } }
     })();
     if(b1){ const prev=Number(b1.textContent||'0'); b1.style.display = moderacion? 'inline-block':'none'; b1.textContent = moderacion; if(moderacion!==prev && moderacion>0){ b1.classList.remove('pulse-badge'); void b1.offsetWidth; b1.classList.add('pulse-badge'); } }
-    if(b2){ const prev=Number(b2.textContent||'0'); b2.style.display = unread? 'inline-block':'none'; b2.textContent = unread; if(unread!==prev && unread>0){ b2.classList.remove('pulse-badge'); void b2.offsetWidth; b2.classList.add('pulse-badge'); } }
   }
 }
 
