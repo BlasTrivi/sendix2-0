@@ -1248,12 +1248,13 @@ function renderShipments(){
 // SENDIX: Moderación (filtrar) + acceso a chat de aprobados (cuando la empresa elija)
 function renderInbox(){
   const ul = document.getElementById('inbox');
-  (async()=>{ try{ await syncProposalsFromAPI(); }catch{}; actuallyRender(); })();
+  // Sincronizar propuestas y cargas para tener contexto completo en la bandeja
+  (async()=>{ try{ await syncProposalsFromAPI(); await syncLoadsFromAPI(); }catch{}; actuallyRender(); })();
   function actuallyRender(){
   // Solo propuestas que no han sido filtradas ni rechazadas
   const pending = state.proposals.filter(p=>p.status==='pending');
   // Propuestas que han sido filtradas por SENDIX y no han sido aprobadas ni rechazadas
-  const filteredList = state.proposals.filter(p=>p.status==='filtered');
+  const filteredList = state.proposals.filter(p=>p.status==='filtered').sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
   ul.innerHTML = `<h3>Pendientes</h3>` + (pending.length ? pending.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
@@ -1265,7 +1266,7 @@ function renderInbox(){
       </div>
     </li>`;
   }).join('') : '<li class="muted">No hay propuestas pendientes.</li>');
-  ul.innerHTML += `<h3 class='mt'>Filtradas por SENDIX</h3>` + (filteredList.length ? filteredList.map(p=>{
+  ul.innerHTML += `<h3 class='mt'>Filtradas por SENDIX (${filteredList.length})</h3>` + (filteredList.length ? filteredList.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
       <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
