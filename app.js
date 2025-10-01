@@ -1251,10 +1251,43 @@ function renderInbox(){
   // Sincronizar propuestas y cargas para tener contexto completo en la bandeja
   (async()=>{ try{ await syncProposalsFromAPI(); await syncLoadsFromAPI(); }catch{}; actuallyRender(); })();
   function actuallyRender(){
+  // Filtros por email
+  const emailInput = document.getElementById('inbox-email');
+  const emailType = document.getElementById('inbox-email-type');
+  const emailVal = String(emailInput?.value||'').trim().toLowerCase();
+  const emailMode = String(emailType?.value||'both');
+  const qInput = document.getElementById('inbox-q');
+  const statusSel = document.getElementById('inbox-status');
+  const q = String(qInput?.value||'').trim().toLowerCase();
+  const statusFilter = String(statusSel?.value||'all');
+  const matchesEmail = (p)=>{
+    if(!emailVal) return true;
+    const load = state.loads.find(x=>x.id===p.loadId);
+    const ownerEmail = (load && load.ownerEmail) ? String(load.ownerEmail).toLowerCase() : String(p.load?.owner?.email||'').toLowerCase();
+    const carrierEmail = String(p.carrier?.email||'').toLowerCase();
+    if(emailMode==='owner') return ownerEmail.includes(emailVal);
+    if(emailMode==='carrier') return carrierEmail.includes(emailVal);
+    return ownerEmail.includes(emailVal) || carrierEmail.includes(emailVal);
+  };
+  const matchesQ = (p)=>{
+    if(!q) return true;
+    const load = state.loads.find(x=>x.id===p.loadId);
+    const hay = [
+      load?.owner,
+      load?.origen,
+      load?.destino,
+      p.vehicle,
+      p.carrier
+    ].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  };
+  const matchesStatus = (p)=> statusFilter==='all' ? true : (p.status===statusFilter);
   // Solo propuestas que no han sido filtradas ni rechazadas
-  const pending = state.proposals.filter(p=>p.status==='pending');
+  const pending = state.proposals.filter(p=>p.status==='pending' && matchesEmail(p) && matchesQ(p) && matchesStatus(p));
   // Propuestas que han sido filtradas por SENDIX y no han sido aprobadas ni rechazadas
-  const filteredList = state.proposals.filter(p=>p.status==='filtered').sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+  const filteredList = state.proposals.filter(p=>p.status==='filtered' && matchesEmail(p) && matchesQ(p) && matchesStatus(p)).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+  // Propuestas filtradas por SENDIX y aprobadas por la empresa
+  const filteredAndApproved = state.proposals.filter(p=>p.status==='approved' && matchesEmail(p) && matchesQ(p) && matchesStatus(p)).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
   ul.innerHTML = `<h3>Pendientes</h3>` + (pending.length ? pending.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
@@ -1277,6 +1310,18 @@ function renderInbox(){
       </div>
     </li>`;
   }).join('') : '<li class="muted">No hay propuestas filtradas.</li>');
+
+  // Bloque: Filtradas por SENDIX y aprobadas por la empresa
+  ul.innerHTML += `<h3 class='mt'>Filtradas por SENDIX y aprobadas por la empresa (${filteredAndApproved.length})</h3>` + (filteredAndApproved.length ? filteredAndApproved.map(p=>{
+    const l = state.loads.find(x=>x.id===p.loadId);
+    return `<li>
+      <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle||'-'})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="badge">Aprobada</span></div>
+      <div class="muted">Carga: ${l?.origen} ➜ ${l?.destino} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Empresa: ${l?.owner}</div>
+      <div class="actions">
+        <button class="btn" data-approved-chat="${p.id}">Abrir chat</button>
+      </div>
+    </li>`;
+  }).join('') : '<li class="muted">No hay aprobadas.</li>');
 
   ul.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click', ()=>{
     const id = b.dataset.filter;
@@ -1307,6 +1352,17 @@ function renderInbox(){
     })();
   }));
   }
+  // Eventos de filtros
+  const emailInput2 = document.getElementById('inbox-email');
+  const typeSel = document.getElementById('inbox-email-type');
+  const btnClear = document.getElementById('inbox-email-clear');
+  if(emailInput2) emailInput2.oninput = ()=> renderInbox();
+  if(typeSel) typeSel.onchange = ()=> renderInbox();
+  if(btnClear) btnClear.onclick = ()=>{ if(emailInput2) emailInput2.value=''; const qEl=document.getElementById('inbox-q'); if(qEl) qEl.value=''; const st=document.getElementById('inbox-status'); if(st) st.value='all'; renderInbox(); };
+  const qEl2 = document.getElementById('inbox-q');
+  const stEl2 = document.getElementById('inbox-status');
+  if(qEl2) qEl2.oninput = ()=> renderInbox();
+  if(stEl2) stEl2.onchange = ()=> renderInbox();
 }
 
 // SENDIX/Empresa/Transportista: lista de chats aprobados

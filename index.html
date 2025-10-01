@@ -323,6 +323,31 @@
 
       <section data-route="moderacion" class="view">
   <h2 class="section-title">Bandeja de propuestas <span class="badge">moderación</span></h2>
+        <div class="row" style="gap:8px; align-items:center; margin-bottom:8px">
+          <label style="flex:1">Filtrar por email
+            <input id="inbox-email" placeholder="correo de empresa o transportista" />
+          </label>
+          <label>Campo
+            <select id="inbox-email-type">
+              <option value="both">Ambos</option>
+              <option value="owner">Empresa</option>
+              <option value="carrier">Transportista</option>
+            </select>
+          </label>
+          <label style="flex:1">Buscar
+            <input id="inbox-q" placeholder="empresa, origen/destino, vehículo, transportista" />
+          </label>
+          <label>Estado
+            <select id="inbox-status">
+              <option value="all">Todos</option>
+              <option value="pending">Pendiente</option>
+              <option value="filtered">Filtrada</option>
+              <option value="approved">Aprobada</option>
+              <option value="rejected">Rechazada</option>
+            </select>
+          </label>
+          <button class="btn btn-ghost" id="inbox-email-clear">Limpiar</button>
+        </div>
         <ul id="inbox" class="list"></ul>
       </section>
 
