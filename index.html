@@ -449,6 +449,34 @@
       <!-- Vista: Usuarios (solo SENDIX) -->
       <section data-route="usuarios" class="view">
         <h2 class="section-title">Usuarios <span class="badge">admin</span></h2>
+        <div class="row" style="gap:8px; align-items:center; margin-bottom:8px">
+          <label>Rol
+            <select id="users-role">
+              <option value="all">Todos</option>
+              <option value="empresa">Empresa/Cliente</option>
+              <option value="transportista">Transportista</option>
+              <option value="sendix">SENDIX</option>
+            </select>
+          </label>
+          <label style="flex:1">Buscar (nombre/email)
+            <input id="users-q" placeholder="Ej: Juan, @empresa.com" />
+          </label>
+          <div id="users-filters-transportista" class="row" style="gap:8px; display:none">
+            <label>Cargas
+              <input id="users-cargas" placeholder="Contenedor, Granel, General…" />
+            </label>
+            <label>Vehículos
+              <input id="users-vehiculos" placeholder="Liviana, Mediana, Pesada" />
+            </label>
+            <label><input type="checkbox" id="users-seguro"/> Seguro OK</label>
+            <label><input type="checkbox" id="users-senasa"/> SENASA</label>
+            <label><input type="checkbox" id="users-imo"/> IMO</label>
+            <label>Alcance
+              <input id="users-alcance" placeholder="Local, Regional, Nacional…" />
+            </label>
+          </div>
+          <button class="btn btn-ghost" id="users-clear">Limpiar</button>
+        </div>
         <ul id="users-list" class="list"></ul>
         <div id="users-empty" class="muted">Aún no hay usuarios. Al registrarse, aparecerán acá.</div>
       </section>

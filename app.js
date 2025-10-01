@@ -595,17 +595,75 @@ function renderProfile(emailToView){
 }
 
 // Vista de usuarios (solo SENDIX)
-function renderUsers(){
+async function renderUsers(){
   const ul = document.getElementById('users-list');
-  const detail = document.getElementById('users-empty');
+  const empty = document.getElementById('users-empty');
+  const roleSel = document.getElementById('users-role');
+  const qInput = document.getElementById('users-q');
+  const boxTransp = document.getElementById('users-filters-transportista');
+  const cargasIn = document.getElementById('users-cargas');
+  const vehiculosIn = document.getElementById('users-vehiculos');
+  const seguroChk = document.getElementById('users-seguro');
+  const senasaChk = document.getElementById('users-senasa');
+  const imoChk = document.getElementById('users-imo');
+  const alcanceIn = document.getElementById('users-alcance');
+  const clearBtn = document.getElementById('users-clear');
   if(!ul) return;
-  const users = (state.users||[]).slice().sort((a,b)=> (a.role||'').localeCompare(b.role||'') || (a.name||'').localeCompare(b.name||''));
+  // Mostrar filtros de transportista sólo cuando corresponda
+  const currentRole = String(roleSel?.value||'all');
+  if(boxTransp) boxTransp.style.display = (currentRole==='transportista' || currentRole==='all') ? 'flex' : 'none';
+  const p = new URLSearchParams();
+  if(currentRole!=='all') p.set('role', currentRole);
+  const q = String(qInput?.value||'').trim(); if(q) p.set('q', q);
+  // Filtros avanzados si rol es transportista (o all, los aplico de todas formas si están cargados)
+  const cargas = String(cargasIn?.value||'').split(',').map(s=>s.trim()).filter(Boolean).join(','); if(cargas) p.set('cargas', cargas);
+  const vehiculos = String(vehiculosIn?.value||'').split(',').map(s=>s.trim()).filter(Boolean).join(','); if(vehiculos) p.set('vehiculos', vehiculos);
+  if(seguroChk?.checked) p.set('seguroOk','1');
+  if(senasaChk?.checked) p.set('senasa','1');
+  if(imoChk?.checked) p.set('imo','1');
+  const alc = String(alcanceIn?.value||'').trim(); if(alc) p.set('alcance', alc);
+  // Llamado al backend
+  let users = [];
+  try{
+    const res = await fetch(`${API.base}/api/users${p.toString()?`?${p.toString()}`:''}`, { credentials: 'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
+    users = await res.json();
+  }catch(e){
+    // Fallback local si falla la API: usar state.users y filtrar similar
+    const src = (state.users||[]);
+    users = src.filter(u=>{
+      if(currentRole!=='all' && u.role!==currentRole) return false;
+      if(q){ const s=(u.name||'')+' '+(u.email||''); if(!s.toLowerCase().includes(q.toLowerCase())) return false; }
+      if(currentRole==='transportista' || cargas||vehiculos||alc||seguroChk?.checked||senasaChk?.checked||imoChk?.checked){
+        const pj = u.perfil||{};
+        const cargArr = cargas? cargas.split(','): [];
+        const vehArr = vehiculos? vehiculos.split(','): [];
+        if(cargArr.length){ const arr = Array.isArray(pj.cargas)? pj.cargas: []; if(!cargArr.some(x=> arr.includes(x))) return false; }
+        if(vehArr.length){ const arr = Array.isArray(pj.vehiculos)? pj.vehiculos: []; if(!vehArr.some(x=> arr.includes(x))) return false; }
+        if(seguroChk?.checked && !pj.seguroOk) return false;
+        if(senasaChk?.checked && !pj.senasa) return false;
+        if(imoChk?.checked && !pj.imo) return false;
+        if(alc && String(pj.alcance||'').toLowerCase().indexOf(alc.toLowerCase())<0) return false;
+      }
+      return true;
+    });
+  }
+  // Render
   ul.innerHTML = users.length ? users.map(u=>{
     const initials = (u.name||'?').split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase();
+    const sub = u.role==='empresa' ? (u.phone? `Tel: ${escapeHtml(u.phone)}` : '') : (u.role==='transportista' ? (u.perfil? `${(u.perfil.cargas||[]).join('/') || ''} · ${(u.perfil.vehiculos||[]).join('/') || ''}` : '') : '');
+    const extras = u.role==='transportista' && u.perfil ? `
+      <div class="muted small">DNI: ${escapeHtml(u.perfil.dni||'-')} · Alcance: ${escapeHtml(u.perfil.alcance||'-')} · Seguro: ${u.perfil.seguroOk?'OK':'No'}</div>
+    ` : '';
     return `<li class="row">
       <div class="row" style="gap:8px; align-items:center">
         <span class="avatar" style="width:28px;height:28px;font-size:12px">${initials}</span>
-        <div><strong>${escapeHtml(u.name||u.email||'')}</strong><div class="muted">${escapeHtml(u.role||'')}</div></div>
+        <div>
+          <strong>${escapeHtml(u.name||u.email||'')}</strong>
+          <div class="muted">${escapeHtml(u.role||'')} · ${escapeHtml(u.email||'')}</div>
+          ${sub? `<div class="muted">${escapeHtml(sub)}</div>`:''}
+          ${extras}
+        </div>
       </div>
       <div class="row" style="gap:8px">
         <button class="btn" data-view-user="${escapeHtml(u.email||'')}">Ver</button>
@@ -613,7 +671,28 @@ function renderUsers(){
     </li>`;
   }).join('') : '<li class="muted">Aún no hay usuarios registrados.</li>';
   ul.querySelectorAll('[data-view-user]')?.forEach(b=> b.onclick = ()=>{ const email=b.dataset.viewUser; document.getElementById('profile-form')?.setAttribute('data-view-email', email); navigate('perfil'); renderProfile(email); });
-  if(detail) detail.style.display = users.length? 'none':'block';
+  if(empty) empty.style.display = users.length? 'none':'block';
+
+  // Wire eventos
+  if(roleSel) roleSel.onchange = ()=> renderUsers();
+  if(qInput) qInput.oninput = ()=> renderUsers();
+  if(cargasIn) cargasIn.oninput = ()=> renderUsers();
+  if(vehiculosIn) vehiculosIn.oninput = ()=> renderUsers();
+  if(seguroChk) seguroChk.onchange = ()=> renderUsers();
+  if(senasaChk) senasaChk.onchange = ()=> renderUsers();
+  if(imoChk) imoChk.onchange = ()=> renderUsers();
+  if(alcanceIn) alcanceIn.oninput = ()=> renderUsers();
+  if(clearBtn) clearBtn.onclick = ()=>{
+    if(roleSel) roleSel.value = 'all';
+    if(qInput) qInput.value = '';
+    if(cargasIn) cargasIn.value = '';
+    if(vehiculosIn) vehiculosIn.value = '';
+    if(seguroChk) seguroChk.checked = false;
+    if(senasaChk) senasaChk.checked = false;
+    if(imoChk) imoChk.checked = false;
+    if(alcanceIn) alcanceIn.value = '';
+    renderUsers();
+  };
 }
 
 // EMPRESA

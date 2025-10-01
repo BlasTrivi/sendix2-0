@@ -814,6 +814,46 @@ app.patch('/api/commissions/:id', async (req, res) => {
   }
 });
 
+// ---- API: Users (admin SENDIX) ----
+app.get('/api/users', requireRole('sendix'), async (req, res) => {
+  try{
+    const { role, q, cargas, vehiculos, seguroOk, senasa, imo, alcance } = req.query as Record<string,string>;
+    const where:any = {};
+    if(role && ['sendix','empresa','transportista'].includes(role)) where.role = role;
+    if(q && String(q).trim()){
+      const s = String(q).trim();
+      where.OR = [
+        { name: { contains: s, mode: 'insensitive' } },
+        { email: { contains: s, mode: 'insensitive' } }
+      ];
+    }
+    const rows = await prisma.usuario.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      select: { id:true, name:true, email:true, role:true, phone:true, taxId:true, perfilJson:true }
+    });
+    // Filtros avanzados por perfilJson (en memoria)
+    const cargArr = cargas ? String(cargas).split(',').map(s=>s.trim()).filter(Boolean) : [];
+    const vehArr = vehiculos ? String(vehiculos).split(',').map(s=>s.trim()).filter(Boolean) : [];
+    const wantSeguro = seguroOk === '1' || seguroOk === 'true';
+    const wantSenasa = senasa === '1' || senasa === 'true';
+    const wantImo = imo === '1' || imo === 'true';
+    const alc = alcance ? String(alcance).toLowerCase() : '';
+    const filtered = rows.filter(u => {
+      if(role && u.role !== role) return false;
+      const pj:any = u.perfilJson || {};
+      if(cargArr.length){ const arr = Array.isArray(pj.cargas)? pj.cargas: []; if(!cargArr.some(x=> arr.includes(x))) return false; }
+      if(vehArr.length){ const arr = Array.isArray(pj.vehiculos)? pj.vehiculos: []; if(!vehArr.some(x=> arr.includes(x))) return false; }
+      if(seguroOk!=null && seguroOk!=='' && wantSeguro && !pj.seguroOk) return false;
+      if(senasa!=null && senasa!=='' && wantSenasa && !pj.senasa) return false;
+      if(imo!=null && imo!=='' && wantImo && !pj.imo) return false;
+      if(alc) { const s = String(pj.alcance||'').toLowerCase(); if(!s.includes(alc)) return false; }
+      return true;
+    });
+    res.json(filtered.map(u=> ({ id:u.id, name:u.name, email:u.email, role:u.role, phone:u.phone, taxId:u.taxId, perfil: u.perfilJson || null })));
+  }catch(err){ res.status(500).json({ error: String(err) }); }
+});
+
 // ---- Frontend estático (sirve index.html y assets) ----
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
