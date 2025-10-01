@@ -1560,17 +1560,21 @@ function renderMetrics(){
     // Filtros de período para el detalle global
     const commPeriod = document.getElementById('comm-period');
     const commCut = document.getElementById('comm-cut');
+    const commStatus = document.getElementById('comm-status');
+    const commExport = document.getElementById('comm-export-csv');
     // Inicializar mes actual si vacío
     if(commPeriod && !commPeriod.value){
       const d = new Date();
       commPeriod.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     }
     const {start: gStart, end: gEnd} = periodRange(commPeriod?.value || '', commCut?.value || 'full');
-    // Items del período
-    const items = [...(comms||[])].filter(c=>{
+    // Items del período + estado
+    let items = [...(comms||[])].filter(c=>{
       const dt = dateForPeriod(c);
       return dt>=gStart && dt<gEnd;
     }).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+    const st = (commStatus?.value||'all');
+    if(st!=='all') items = items.filter(c=> c.status===st);
     list.innerHTML = items.length ? items.map(c=>{
       const l = state.loads.find(x=>x.id===c.loadId);
       const status = c.status==='pending'? '<span class="badge">Pendiente</span>' : `<span class="badge ok">Facturada</span>`;
@@ -1593,9 +1597,43 @@ function renderMetrics(){
         renderMetrics();
       })();
     }));
+    // Exportar CSV del detalle global (aplica filtros actuales)
+    if(commExport){
+      commExport.onclick = ()=>{
+        const ym = commPeriod?.value || '';
+        const cut = commCut?.value || 'full';
+        const header = ['Transportista','Empresa','Origen','Destino','Fecha','Oferta_ARS','Comision_ARS','Estado','Periodo','Corte'];
+        const rows = [header];
+        items.forEach(c=>{
+          const l = state.loads.find(x=>x.id===c.loadId);
+          rows.push([
+            c.carrier||'',
+            l?.owner||'',
+            l?.origen||'',
+            l?.destino||'',
+            formatDateForCsv(c.invoiceAt||c.createdAt),
+            Number(c.price||0),
+            Number(c.amount||0),
+            c.status,
+            ym,
+            cut
+          ]);
+        });
+        const csv = csvBuild(rows, ';');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `comisiones_detalle_${ym}_${cut}_${st}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+      };
+    }
     // Eventos de filtros
     if(commPeriod) commPeriod.onchange = ()=> renderMetrics();
     if(commCut) commCut.onchange = ()=> renderMetrics();
+    if(commStatus) commStatus.onchange = ()=> renderMetrics();
   }
   }
 
@@ -1607,7 +1645,7 @@ function renderMetrics(){
   const carrierTotalEl = document.getElementById('carrier-total');
   const carrierCountEl = document.getElementById('carrier-count');
   const carrierEmpty = document.getElementById('carrier-empty');
-  const btnInvoicePeriod = document.getElementById('carrier-invoice-period');
+  const btnInvoicePeriod = null; // eliminado por requerimiento
   const btnExportCsv = document.getElementById('carrier-export-csv');
   const adminWrap = document.getElementById('commission-admin');
   if(carrierList && periodInput && detailList && adminWrap){
@@ -1667,35 +1705,7 @@ function renderMetrics(){
           <div>${status}</div>
         </li>`;
       }).join('') : '<li class="muted">Sin comisiones en el período seleccionado.</li>';
-      if(btnInvoicePeriod){
-        btnInvoicePeriod.disabled = items.every(c=>c.status==='invoiced') || !items.length;
-        btnInvoicePeriod.onclick = ()=>{
-          const ids = items.filter(c=>c.status!=='invoiced').map(c=>c.id);
-          if(!ids.length) return;
-          if(!confirm(`Marcar ${ids.length} comisión(es) como facturadas para ${selected}?`)) return;
-          const ts = new Date().toISOString();
-          const originalText = btnInvoicePeriod.textContent;
-          btnInvoicePeriod.textContent = 'Marcando…';
-          btnInvoicePeriod.disabled = true;
-          (async()=>{
-            try{
-              // Intentar actualizar en backend en paralelo
-              await Promise.allSettled(ids.map(id=> API.updateCommission(id, { status:'invoiced', invoiceAt: ts })));
-              // Refrescar desde API y re-render
-              await syncCommissionsFromAPI();
-              renderMetrics();
-            }catch{
-              // Fallback local si falla la API
-              state.commissions.forEach(c=>{ if(ids.includes(c.id)){ c.status='invoiced'; c.invoiceAt = ts; } });
-              save();
-              renderMetrics();
-            }finally{
-              btnInvoicePeriod.textContent = originalText;
-              // El render vuelve a crear el botón y setea disabled según corresponda
-            }
-          })();
-        };
-      }
+      // Botón de marcar período como facturado eliminado
       if(btnExportCsv){
         btnExportCsv.disabled = !items.length;
         btnExportCsv.onclick = ()=>{

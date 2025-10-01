@@ -424,6 +424,14 @@
               <option value="q2">2Q (16–fin)</option>
             </select>
           </label>
+          <label>Estado
+            <select id="comm-status">
+              <option value="all">Todos</option>
+              <option value="pending">No facturado</option>
+              <option value="invoiced">Facturado</option>
+            </select>
+          </label>
+          <button class="btn btn-ghost" id="comm-export-csv" style="margin-left:auto">Exportar CSV</button>
         </div>
         <ul id="commissions-list" class="list"></ul>
 
@@ -449,7 +457,6 @@
                 <div><span class="muted">Total período:</span> <strong id="carrier-total">$0</strong></div>
                 <div><span class="muted">Operaciones:</span> <strong id="carrier-count">0</strong></div>
               </div>
-              <button class="btn" id="carrier-invoice-period">Marcar período como facturado</button>
               <button class="btn btn-ghost" id="carrier-export-csv">Exportar CSV</button>
             </div>
             <div id="carrier-empty" class="muted" style="display:none; margin-top:8px">Elegí un transportista para ver el detalle.</div>
