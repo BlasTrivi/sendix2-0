@@ -81,6 +81,16 @@ function ensureSocket(){
       try{ const route=(location.hash.replace('#','')||'home'); if(route==='conversaciones') renderThreads(); }catch{}
       scheduleNavUnreadRefresh();
     });
+    // Actualización de tracking en tiempo real
+    socket.on('ship:update', (evt)=>{
+      try{
+        const p = (state.proposals||[]).find(x=>x.id===evt?.proposalId);
+        if(p && evt && evt.shipStatus){ p.shipStatus = evt.shipStatus; save(); }
+      }catch{}
+      const route = (location.hash.replace('#','')||'home');
+      if(route==='tracking') renderTracking();
+      if(route==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
+    });
   }catch{}
 }
 
@@ -909,11 +919,11 @@ async function syncProposalsFromAPI(){
       loadId: r.loadId,
       owner: r.load?.owner?.name || '-',
       ownerEmail: r.load?.owner?.email || '',
-  carrier: r.carrier?.name || r.carrierName || '-',
-  carrierEmail: r.carrier?.email || '',
-  carrierPhone: r.carrier?.phone || '',
-  carrierPerfil: r.carrier?.perfilJson || null,
-      vehicle: r.vehicle||'',
+      carrier: r.carrier?.name || '-',
+      carrierEmail: r.carrier?.email || '',
+      carrierPhone: r.carrier?.phone || '',
+      carrierPerfil: r.carrier?.perfilJson || null,
+      vehicle: r.vehicle || '',
       price: r.price ?? null,
       status: r.status,
       shipStatus: r.shipStatus || 'pendiente',
@@ -937,6 +947,14 @@ async function syncProposalsFromAPI(){
     }));
     state.commissions = commissions;
     save();
+    // Rejoin a salas de propuestas aprobadas
+    try{
+      ensureSocket();
+      if(socket && socket.connected){
+        const approved = (state.proposals || []).filter(p => p.status === 'approved').map(p => p.id);
+        if(approved.length) socket.emit('chat:joinMany', { proposalIds: approved });
+      }
+    }catch{}
   }catch(e){ /* fallback silencioso */ }
 }
 

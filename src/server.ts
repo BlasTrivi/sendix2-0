@@ -550,6 +550,10 @@ app.patch('/api/proposals/:id', async (req, res) => {
         commission: true
       }
     });
+    // Emitir actualización de tracking si cambia shipStatus
+    if(typeof data.shipStatus !== 'undefined'){
+      try{ io.to(`proposal:${id}`).emit('ship:update', { proposalId: id, shipStatus: upd.shipStatus, updatedAt: new Date().toISOString() }); }catch{}
+    }
     res.json(upd);
   }catch(err:any){
     res.status(400).json({ error: err?.message || String(err) });
