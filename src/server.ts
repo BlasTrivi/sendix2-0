@@ -472,11 +472,16 @@ const ProposalCreateSchema = z.object({
   price: z.number().int().nonnegative().optional()
 });
 
+// Aceptar shipStatus con guiones (en-carga/en-camino) y normalizar a guiones bajos para almacenamiento
+const ShipStatusInput = z
+  .string()
+  .transform(s => String(s).trim().replace(/-/g, '_'))
+  .refine(v => ['pendiente','en_carga','en_camino','entregado'].includes(v), 'shipStatus inválido');
 const ProposalUpdateSchema = z.object({
   vehicle: z.string().optional(),
   price: z.number().int().nonnegative().optional(),
   status: z.enum(['pending','filtered','approved','rejected']).optional(),
-  shipStatus: z.enum(['pendiente','en_carga','en_camino','entregado']).optional()
+  shipStatus: ShipStatusInput.optional()
 });
 
 // Crear propuesta
@@ -542,7 +547,8 @@ app.patch('/api/proposals/:id', async (req, res) => {
         vehicle: data.vehicle ?? undefined,
         price: data.price ?? undefined,
         status: data.status ?? undefined,
-        shipStatus: data.shipStatus ?? undefined
+        // Tipado laxo: Prisma enum ShipStatus existe, pero usamos any para evitar discrepancias de tipo generadas
+        shipStatus: (data.shipStatus as any) ?? undefined
       },
       include: {
         load: { include: { owner: { select: { id:true, name:true, email:true } } } },
@@ -553,15 +559,19 @@ app.patch('/api/proposals/:id', async (req, res) => {
     // Emitir actualización de tracking si cambia shipStatus
     if(typeof data.shipStatus !== 'undefined'){
       try{ io.to(`proposal:${id}`).emit('ship:update', { proposalId: id, shipStatus: upd.shipStatus, updatedAt: new Date().toISOString() }); }catch{}
-      // Si se marcó como entregado, registrar un mensaje en el chat del envío y emitirlo
-      if(data.shipStatus === 'entregado'){
+      // Si se marcó como entregado o estados intermedios, registrar un mensaje en el chat del envío y emitirlo
+      const status = data.shipStatus;
+      if(status === 'entregado' || status === 'en_carga' || status === 'en_camino'){
         try{
           const th = await ensureThreadForProposal(id);
+          const msgText = status === 'entregado'
+            ? '🚚 Entrega confirmada por el transportista.'
+            : (status === 'en_carga' ? '📦 Estado actualizado: En carga.' : '🛣️ Estado actualizado: En camino.');
           const created = await prisma.message.create({
             data: {
               threadId: th.id,
               fromUserId: req.user?.id || upd.carrierId, // si no hay user en contexto, fallback al transportista
-              text: '🚚 Entrega confirmada por el transportista.',
+              text: msgText,
               attachments: undefined
             },
             include: { fromUser: { select: { id:true, name:true, role:true } } }
