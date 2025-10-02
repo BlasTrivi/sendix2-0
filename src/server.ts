@@ -28,6 +28,13 @@ const rawOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim())
 const corsOrigins = rawOrigins.length > 0 ? rawOrigins : undefined;
 // Si no hay orígenes configurados, reflejamos el Origin del request (origin:true) para permitir credenciales en dev
 app.use(corsOrigins ? cors({ origin: corsOrigins, credentials: true }) : cors({ origin: true, credentials: true }));
+// Refuerzo: indicar explícitamente que permitimos credenciales en todas las respuestas
+app.use((req, res, next)=>{
+  if(req.headers.origin && (corsOrigins ? corsOrigins.includes(req.headers.origin) : true)){
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  next();
+});
 
 // ---- API ----
 // ---- Auth (opcional) ----
@@ -40,7 +47,11 @@ declare global {
 const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || 'dev-secret';
 const AUTH_REQUIRED = (process.env.AUTH_REQUIRED || 'false').toLowerCase() === 'true';
 // Cookie SameSite configurable: lax | none | strict
-const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE || 'lax').toLowerCase();
+// Si se configura CORS_ORIGIN (frontend distinto dominio), por defecto usamos 'none' para que el navegador envíe cookies cross-site.
+const DEFAULT_SAMESITE = (process.env.COOKIE_SAMESITE
+  || (rawOrigins.length > 0 ? 'none' : 'lax'))
+  .toLowerCase();
+const COOKIE_SAMESITE = DEFAULT_SAMESITE;
 type SameSiteOpt = 'lax' | 'none' | 'strict';
 function getCookieOpts(){
   const sameSite = (['lax','none','strict'].includes(COOKIE_SAMESITE) ? COOKIE_SAMESITE : 'lax') as SameSiteOpt;

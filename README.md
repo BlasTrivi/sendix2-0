@@ -57,9 +57,20 @@ Opción B — Frontend (Netlify/Vercel) + Backend (Railway/Render):
 
 - Backend: desplegar este repo como servicio (usa `npm run build` y `npm start`).
 - Frontend: servir archivos estáticos (`index.html`, `styles.css`, `app.js`, `assets`).
-- Configurá en el HTML del front una variable global con la URL de API si es distinto dominio:
-	`<script>window.SENDIX_API_BASE = 'https://TU_API_PUBLICA';</script>`
-- El frontend usa esa URL para llamar a `/api/loads`.
+- Configurá en el HTML del front una variable global con la URL pública de la API si es distinto dominio:
+		`<script>window.SENDIX_API_BASE = 'https://TU_API_PUBLICA';</script>`
+- Variables recomendadas en backend (entorno producción):
+	- `CORS_ORIGIN=https://TU_FRONTEND` (una o varias, separadas por coma)
+	- `COOKIE_SAMESITE=none` (para que el navegador envíe cookies cross-site). En el código ya se fuerza por defecto a `none` si hay `CORS_ORIGIN` definido.
+	- `NODE_ENV=production` (activa cookies `secure` automáticamente cuando SameSite es `none`).
+	- `APP_BASE_URL=https://TU_FRONTEND` (para generar links correctos de reset de password).
+	- `SENDIX_ADMIN_EMAIL` y `SENDIX_ADMIN_PASSWORD` para bootstrap de admin.
+	- SMTP (`SMTP_HOST`,`SMTP_PORT`,`SMTP_USER`,`SMTP_PASS`,`SMTP_FROM`) para recuperar contraseña.
+  
+Si usás un subdominio distinto para API y front, asegurate de:
+	- Servir por HTTPS en ambos.
+	- CORS habilitado con `credentials: true` (ya está) y `CORS_ORIGIN` apuntando al front.
+	- Cookies con SameSite=None y Secure (ya gestionado automáticamente por el servidor).
 
 ## Rutas y vistas
 
