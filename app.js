@@ -909,8 +909,10 @@ async function syncProposalsFromAPI(){
       loadId: r.loadId,
       owner: r.load?.owner?.name || '-',
       ownerEmail: r.load?.owner?.email || '',
-      carrier: r.carrier?.name || r.carrierName || '-',
-      carrierEmail: r.carrier?.email || '',
+  carrier: r.carrier?.name || r.carrierName || '-',
+  carrierEmail: r.carrier?.email || '',
+  carrierPhone: r.carrier?.phone || '',
+  carrierPerfil: r.carrier?.perfilJson || null,
       vehicle: r.vehicle||'',
       price: r.price ?? null,
       status: r.status,
@@ -1374,8 +1376,12 @@ function renderInbox(){
   const filteredAndApproved = state.proposals.filter(p=>p.status==='approved' && matchesEmail(p) && matchesQ(p) && matchesStatus(p)).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
   ul.innerHTML = `<h3>Pendientes</h3>` + (pending.length ? pending.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
+    const perfil = p.carrierPerfil || {};
+    const cargas = Array.isArray(perfil.cargas)? perfil.cargas.join('/') : '';
+    const vehs = Array.isArray(perfil.vehiculos)? perfil.vehiculos.join('/') : '';
     return `<li>
       <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
+      <div class="muted">Transportista: ${p.carrier} · Email: ${p.carrierEmail||'-'} · Tel: ${p.carrierPhone||'-'}${(cargas||vehs)? ` · Cargas/Vehículos: ${cargas||'-'} / ${vehs||'-'}`:''}</div>
       <div class="muted">Carga: ${l?.origen} ➜ ${l?.destino} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Empresa: ${l?.owner}</div>
       <div class="actions">
         <button class="btn btn-primary" data-filter="${p.id}">Filtrar</button>
@@ -1385,8 +1391,12 @@ function renderInbox(){
   }).join('') : '<li class="muted">No hay propuestas pendientes.</li>');
   ul.innerHTML += `<h3 class='mt'>Filtradas por SENDIX (${filteredList.length})</h3>` + (filteredList.length ? filteredList.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
+    const perfil = p.carrierPerfil || {};
+    const cargas = Array.isArray(perfil.cargas)? perfil.cargas.join('/') : '';
+    const vehs = Array.isArray(perfil.vehiculos)? perfil.vehiculos.join('/') : '';
     return `<li>
       <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
+      <div class="muted">Transportista: ${p.carrier} · Email: ${p.carrierEmail||'-'} · Tel: ${p.carrierPhone||'-'}${(cargas||vehs)? ` · Cargas/Vehículos: ${cargas||'-'} / ${vehs||'-'}`:''}</div>
       <div class="muted">Carga: ${l?.origen} ➜ ${l?.destino} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Empresa: ${l?.owner}</div>
       <div class="actions">
         <span class="badge">Filtrada</span>
@@ -1398,8 +1408,12 @@ function renderInbox(){
   // Bloque: Filtradas por SENDIX y aprobadas por la empresa
   ul.innerHTML += `<h3 class='mt'>Filtradas por SENDIX y aprobadas por la empresa (${filteredAndApproved.length})</h3>` + (filteredAndApproved.length ? filteredAndApproved.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
+    const perfil = p.carrierPerfil || {};
+    const cargas = Array.isArray(perfil.cargas)? perfil.cargas.join('/') : '';
+    const vehs = Array.isArray(perfil.vehiculos)? perfil.vehiculos.join('/') : '';
     return `<li>
       <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle||'-'})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="badge">Aprobada</span></div>
+      <div class="muted">Transportista: ${p.carrier} · Email: ${p.carrierEmail||'-'} · Tel: ${p.carrierPhone||'-'}${(cargas||vehs)? ` · Cargas/Vehículos: ${cargas||'-'} / ${vehs||'-'}`:''}</div>
       <div class="muted">Carga: ${l?.origen} ➜ ${l?.destino} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Empresa: ${l?.owner}</div>
       <div class="actions">
         <button class="btn" data-approved-chat="${p.id}">Abrir chat</button>

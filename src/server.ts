@@ -509,7 +509,7 @@ app.get('/api/proposals', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: {
         load: { include: { owner: { select: { id:true, name:true, email:true } } } },
-        carrier: { select: { id:true, name:true, email:true } },
+        carrier: { select: { id:true, name:true, email:true, phone:true, perfilJson:true } },
         commission: true,
         thread: { select: { id:true } }
       }
