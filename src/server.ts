@@ -553,6 +553,32 @@ app.patch('/api/proposals/:id', async (req, res) => {
     // Emitir actualización de tracking si cambia shipStatus
     if(typeof data.shipStatus !== 'undefined'){
       try{ io.to(`proposal:${id}`).emit('ship:update', { proposalId: id, shipStatus: upd.shipStatus, updatedAt: new Date().toISOString() }); }catch{}
+      // Si se marcó como entregado, registrar un mensaje en el chat del envío y emitirlo
+      if(data.shipStatus === 'entregado'){
+        try{
+          const th = await ensureThreadForProposal(id);
+          const created = await prisma.message.create({
+            data: {
+              threadId: th.id,
+              fromUserId: req.user?.id || upd.carrierId, // si no hay user en contexto, fallback al transportista
+              text: '🚚 Entrega confirmada por el transportista.',
+              attachments: undefined
+            },
+            include: { fromUser: { select: { id:true, name:true, role:true } } }
+          });
+          try{
+            io.to(`proposal:${id}`).emit('chat:message', {
+              proposalId: id,
+              id: created.id,
+              text: created.text,
+              createdAt: created.createdAt,
+              from: { id: created.fromUser.id, name: created.fromUser.name, role: created.fromUser.role },
+              replyToId: created.replyToId,
+              attachments: created.attachments || null
+            });
+          }catch{}
+        }catch(err){ console.warn('No se pudo registrar mensaje de entrega:', err); }
+      }
     }
     res.json(upd);
   }catch(err:any){
