@@ -930,6 +930,8 @@ async function syncProposalsFromAPI(){
       proposalId: r.id,
       loadId: r.loadId,
       owner: r.load?.owner?.name || '-',
+      origen: r.load?.origen || '',
+      destino: r.load?.destino || '',
       carrier: r.carrier?.name || '-',
       price: r.price ?? 0,
       rate: Number(r.commission.rate ?? COMM_RATE),
@@ -952,6 +954,8 @@ async function syncCommissionsFromAPI(){
       proposalId: r.proposalId,
       loadId: r.proposal?.loadId,
       owner: r.proposal?.load?.owner?.name || '-',
+      origen: r.proposal?.load?.origen || '',
+      destino: r.proposal?.load?.destino || '',
       carrier: r.proposal?.carrier?.name || '-',
       price: r.proposal?.price ?? 0,
       rate: Number(r.rate ?? COMM_RATE),
@@ -1575,13 +1579,16 @@ function renderMetrics(){
     }).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
     const st = (commStatus?.value||'all');
     if(st!=='all') items = items.filter(c=> c.status===st);
-    list.innerHTML = items.length ? items.map(c=>{
+      list.innerHTML = items.length ? items.map(c=>{
       const l = state.loads.find(x=>x.id===c.loadId);
+      const owner = c.owner || l?.owner || '-';
+      const origen = c.origen || l?.origen || '?';
+      const destino = c.destino || l?.destino || '?';
       const status = c.status==='pending'? '<span class="badge">Pendiente</span>' : `<span class="badge ok">Facturada</span>`;
   const btn = c.status==='pending' ? `<button class="btn" data-invoice="${c.id}">Marcar facturada</button>` : (()=>{ const [f,h]=formatDatePartsForCsv(c.invoiceAt||c.createdAt); return `<span class="muted" title="${formatDateForCsv(c.invoiceAt||c.createdAt)}">${f} ${h}</span>`; })();
       return `<li class="row">
         <div>
-          <div><strong>${c.carrier}</strong> <span class="muted">→ ${l?.origen||'?'} → ${l?.destino||'?'} · ${l?.owner||'-'}</span></div>
+          <div><strong>${c.carrier}</strong> <span class="muted">→ ${origen} → ${destino} · ${owner}</span></div>
           <div class="muted">Oferta $${c.price.toLocaleString('es-AR')} · Comisión (10%) $${c.amount.toLocaleString('es-AR')} · Fecha ${formatDateForCsv(c.invoiceAt||c.createdAt)}</div>
         </div>
         <div class="row">${status} ${btn}</div>
@@ -1606,12 +1613,15 @@ function renderMetrics(){
         const rows = [header];
         items.forEach(c=>{
           const l = state.loads.find(x=>x.id===c.loadId);
+          const owner = c.owner || l?.owner || '';
+          const origen = c.origen || l?.origen || '';
+          const destino = c.destino || l?.destino || '';
           const [fecha, hora] = formatDatePartsForCsv(c.invoiceAt||c.createdAt);
           rows.push([
             c.carrier||'',
-            l?.owner||'',
-            l?.origen||'',
-            l?.destino||'',
+            owner,
+            origen,
+            destino,
             fecha,
             hora,
             Number(c.price||0),
@@ -1716,12 +1726,15 @@ function renderMetrics(){
           const rows = [header];
           items.forEach(c=>{
             const l = state.loads.find(x=>x.id===c.loadId);
+            const owner = c.owner || l?.owner || '';
+            const origen = c.origen || l?.origen || '';
+            const destino = c.destino || l?.destino || '';
             const [fecha, hora] = formatDatePartsForCsv(c.invoiceAt||c.createdAt);
             rows.push([
               selected,
-              l?.owner||'',
-              l?.origen||'',
-              l?.destino||'',
+              owner,
+              origen,
+              destino,
               fecha,
               hora,
               Number(c.price||0),
