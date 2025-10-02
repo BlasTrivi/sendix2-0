@@ -336,14 +336,12 @@ function initLogin(){
   const openReg = document.getElementById('auth-open-register');
   const regWrap = document.getElementById('auth-register');
   const loginCtas = document.getElementById('auth-register-cta');
-  const sendixRow = document.getElementById('auth-sendix-row');
   const backLogin = document.getElementById('auth-back-login');
   const regCompany = document.getElementById('register-company');
   const regCarrier = document.getElementById('register-carrier');
   const tabCompany = document.getElementById('reg-tab-company');
   const tabCarrier = document.getElementById('reg-tab-carrier');
   const cargasAll = document.getElementById('cargas-all');
-  const sendixDemo = document.getElementById('auth-sendix-demo');
   const forgot = document.getElementById('auth-forgot');
 
   if(loginForm){
@@ -365,21 +363,12 @@ function initLogin(){
       }
     });
   }
-  // Ocultar el acceso SENDIX (demo) por defecto; mostrar solo si se pasa ?demo=sendix
-  try{
-    const allowSendixDemo = new URLSearchParams(location.search).get('demo')==='sendix';
-    const sendixRowEl = document.getElementById('auth-sendix-row');
-    if(sendixRowEl) sendixRowEl.style.display = allowSendixDemo ? 'block' : 'none';
-  }catch{}
-  if(sendixDemo){
-    sendixDemo.onclick = ()=>{ state.user = { name:'Nexo SENDIX', role:'sendix', email:'sendix@demo', password: '' }; upsertUser(state.user); save(); updateChrome(); navigate('home'); };
-  }
+  // Acceso SENDIX (demo) eliminado
   if(openReg){
     openReg.onclick = ()=>{
       if(regWrap) regWrap.style.display='grid';
       if(loginForm) loginForm.style.display='none';
       if(loginCtas) loginCtas.style.display='none';
-      if(sendixRow) sendixRow.style.display='none';
       if(regCompany) regCompany.style.display='grid';
       if(regCarrier) regCarrier.style.display='none';
     };
@@ -404,7 +393,6 @@ function initLogin(){
       if(regWrap) regWrap.style.display='none';
       if(loginForm) loginForm.style.display='grid';
       if(loginCtas) loginCtas.style.display='flex';
-      if(sendixRow) sendixRow.style.display='flex';
     };
   }
   if(tabCompany){ tabCompany.onclick = ()=>{ if(regCompany) regCompany.style.display='grid'; if(regCarrier) regCarrier.style.display='none'; } }
@@ -2443,7 +2431,6 @@ function startResetFlow(token){
     // Ocultar formularios de login/registro
     loginView.querySelector('#auth-login-form')?.setAttribute('style','display:none');
     loginView.querySelector('#auth-register-cta')?.setAttribute('style','display:none');
-    loginView.querySelector('#auth-sendix-row')?.setAttribute('style','display:none');
     loginView.querySelector('#auth-register')?.setAttribute('style','display:none');
     // Crear caja de reset
     let box = document.getElementById('reset-box');
