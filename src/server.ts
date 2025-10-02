@@ -20,7 +20,9 @@ const prisma = new PrismaClient();
 // Confiar en el proxy (Heroku/Render/Vercel/Nginx) para que req.protocol refleje HTTPS
 // y las cookies 'secure' funcionen correctamente detrás de un proxy TLS
 app.set('trust proxy', 1);
-app.use(express.json());
+// Aumentar límite de JSON para adjuntos (previews base64)
+app.use(express.json({ limit: '6mb' }));
+app.use(express.urlencoded({ extended: true, limit: '6mb' }));
 app.use(cookieParser());
 
 // CORS configurable por variable de entorno (lista separada por comas)
@@ -323,9 +325,8 @@ app.get('/healthz', (_req, res) => {
 });
 
 // ---- API: Loads ----
-const LoadCreateSchema = z.object({
-  ownerEmail: z.string().email(),
-  ownerName: z.string().min(1),
+// Cuerpo base de una carga (sin propietario)
+const LoadFieldsSchema = z.object({
   origen: z.string().min(1),
   destino: z.string().min(1),
   tipo: z.string().min(1),
@@ -337,6 +338,12 @@ const LoadCreateSchema = z.object({
   fechaHora: z.string().nullable().optional(),
   descripcion: z.string().optional().default(''),
   attachments: z.any().optional()
+});
+
+// Versión legacy (cuando no hay sesión se permite especificar el propietario por email/nombre)
+const LoadCreateSchema = LoadFieldsSchema.extend({
+  ownerEmail: z.string().email(),
+  ownerName: z.string().min(1)
 });
 
 const LoadUpdateSchema = LoadCreateSchema.partial().omit({ ownerEmail: true, ownerName: true });
@@ -371,6 +378,30 @@ async function ensureCarrierUser(email: string, name: string){
 // Crear carga
 app.post('/api/loads', requireRole('empresa'), async (req, res) => {
   try {
+    // Si hay usuario en sesión y es empresa, tomamos su ID y validamos solo campos de carga
+    if (req.user && req.user.role === 'empresa') {
+      const body = LoadFieldsSchema.parse(req.body);
+      const created = await prisma.load.create({
+        data: {
+          ownerId: req.user.id,
+          origen: body.origen,
+          destino: body.destino,
+          tipo: body.tipo,
+          cantidad: body.cantidad ?? undefined,
+          unidad: body.unidad || undefined,
+          dimensiones: body.dimensiones || undefined,
+          peso: body.peso ?? undefined,
+          volumen: body.volumen ?? undefined,
+          fechaHora: body.fechaHora ? new Date(body.fechaHora) : undefined,
+          descripcion: body.descripcion || undefined,
+          attachments: body.attachments ?? undefined
+        },
+        include: { owner: { select: { id: true, name: true, email: true } } }
+      });
+      return res.status(201).json(created);
+    }
+
+    // Compatibilidad: si por alguna razón se llama sin sesión, aceptar ownerEmail/ownerName
     const body = LoadCreateSchema.parse(req.body);
     const owner = await ensureEmpresaUser(body.ownerEmail.toLowerCase(), body.ownerName);
     const created = await prisma.load.create({
