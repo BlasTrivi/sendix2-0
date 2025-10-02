@@ -839,6 +839,7 @@ async function syncLoadsFromAPI(){
     state.loads = rows.map(r=>({
       id: r.id,
       owner: r.owner?.name || r.ownerName || state.user.name,
+      ownerEmail: r.owner?.email || '',
       origen: r.origen,
       destino: r.destino,
       tipo: r.tipo,
@@ -878,6 +879,7 @@ async function addLoad(load){
     state.loads.unshift({
       id: created.id,
       owner: created.owner?.name || state.user.name,
+      ownerEmail: created.owner?.email || state.user.email || '',
       origen: created.origen,
       destino: created.destino,
       tipo: created.tipo,
@@ -905,7 +907,10 @@ async function syncProposalsFromAPI(){
     state.proposals = rows.map(r=>({
       id: r.id,
       loadId: r.loadId,
+      owner: r.load?.owner?.name || '-',
+      ownerEmail: r.load?.owner?.email || '',
       carrier: r.carrier?.name || r.carrierName || '-',
+      carrierEmail: r.carrier?.email || '',
       vehicle: r.vehicle||'',
       price: r.price ?? null,
       status: r.status,
@@ -1342,9 +1347,8 @@ function renderInbox(){
   const statusFilter = String(statusSel?.value||'all');
   const matchesEmail = (p)=>{
     if(!emailVal) return true;
-    const load = state.loads.find(x=>x.id===p.loadId);
-    const ownerEmail = (load && load.ownerEmail) ? String(load.ownerEmail).toLowerCase() : String(p.load?.owner?.email||'').toLowerCase();
-    const carrierEmail = String(p.carrier?.email||'').toLowerCase();
+    const ownerEmail = String(p.ownerEmail||'').toLowerCase();
+    const carrierEmail = String(p.carrierEmail||'').toLowerCase();
     if(emailMode==='owner') return ownerEmail.includes(emailVal);
     if(emailMode==='carrier') return carrierEmail.includes(emailVal);
     return ownerEmail.includes(emailVal) || carrierEmail.includes(emailVal);
@@ -1353,7 +1357,7 @@ function renderInbox(){
     if(!q) return true;
     const load = state.loads.find(x=>x.id===p.loadId);
     const hay = [
-      load?.owner,
+      load?.owner || p.owner,
       load?.origen,
       load?.destino,
       p.vehicle,
