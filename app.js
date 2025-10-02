@@ -1602,7 +1602,7 @@ function renderMetrics(){
       commExport.onclick = ()=>{
         const ym = commPeriod?.value || '';
         const cut = commCut?.value || 'full';
-        const header = ['Transportista','Empresa','Origen','Destino','Fecha','Hora','Oferta_ARS','Comision_ARS','Estado','Periodo','Corte'];
+        const header = ['Transportista','Empresa','Origen','Destino','Fecha','Hora','Oferta (ARS)','Comisión (ARS)','Estado','Período'];
         const rows = [header];
         items.forEach(c=>{
           const l = state.loads.find(x=>x.id===c.loadId);
@@ -1616,9 +1616,8 @@ function renderMetrics(){
             hora,
             Number(c.price||0),
             Number(c.amount||0),
-            c.status,
-            ym,
-            cut
+            formatEstadoCsv(c.status),
+            ym
           ]);
         });
         const csv = csvBuild(rows, ';');
@@ -1626,7 +1625,7 @@ function renderMetrics(){
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `comisiones_detalle_${ym}_${cut}_${st}.csv`;
+        a.download = `comisiones_detalle_${ym}_${st}.csv`;
         document.body.appendChild(a);
         a.click();
         setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
@@ -1713,7 +1712,7 @@ function renderMetrics(){
         btnExportCsv.onclick = ()=>{
           const ym = periodInput.value || '';
           const cut = (cutInput?.value||'full');
-          const header = ['Transportista','Empresa','Origen','Destino','Fecha','Hora','Oferta_ARS','Comision_ARS','Estado','Periodo','Corte'];
+          const header = ['Transportista','Empresa','Origen','Destino','Fecha','Hora','Oferta (ARS)','Comisión (ARS)','Estado','Período'];
           const rows = [header];
           items.forEach(c=>{
             const l = state.loads.find(x=>x.id===c.loadId);
@@ -1727,9 +1726,8 @@ function renderMetrics(){
               hora,
               Number(c.price||0),
               Number(c.amount||0),
-              c.status,
-              ym,
-              cut
+              formatEstadoCsv(c.status),
+              ym
             ]);
           });
           const csv = csvBuild(rows, ';');
@@ -1737,7 +1735,7 @@ function renderMetrics(){
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `comisiones_${selected}_${ym}_${cut}.csv`;
+          a.download = `comisiones_${selected}_${ym}.csv`;
           document.body.appendChild(a);
           a.click();
           setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
@@ -1810,6 +1808,13 @@ function formatDatePartsForCsv(date){
   }catch{
     return ['', ''];
   }
+}
+
+function formatEstadoCsv(status){
+  const s = String(status||'').toLowerCase();
+  if(s==='invoiced') return 'Facturada';
+  if(s==='pending') return 'Pendiente';
+  return s ? (s[0].toUpperCase()+s.slice(1)) : '';
 }
 
 // Chat (mediación) — por hilo (loadId + carrier) con SENDIX como 3er participante
