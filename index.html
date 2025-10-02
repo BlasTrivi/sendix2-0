@@ -433,34 +433,7 @@
         </div>
         <ul id="commissions-list" class="list"></ul>
 
-        <h3 class="mt">Control de comisiones por transportista</h3>
-        <div id="commission-admin" class="commission-admin" data-selected-carrier="">
-          <div class="commission-left">
-            <h4>Transportistas</h4>
-            <ul id="carrier-list" class="list"></ul>
-          </div>
-          <div class="commission-right">
-            <div class="row" style="gap:8px; align-items:center">
-              <label>Período
-                <input type="month" id="carrier-period" />
-              </label>
-              <label>Corte
-                <select id="carrier-cut">
-                  <option value="full">Mes completo</option>
-                  <option value="q1">1Q (1–15)</option>
-                  <option value="q2">2Q (16–fin)</option>
-                </select>
-              </label>
-              <div class="row" style="gap:12px; margin-left:auto">
-                <div><span class="muted">Total período:</span> <strong id="carrier-total">$0</strong></div>
-                <div><span class="muted">Operaciones:</span> <strong id="carrier-count">0</strong></div>
-              </div>
-              <button class="btn btn-ghost" id="carrier-export-csv">Exportar CSV</button>
-            </div>
-            <div id="carrier-empty" class="muted" style="display:none; margin-top:8px">Elegí un transportista para ver el detalle.</div>
-            <ul id="carrier-commissions-detail" class="list"></ul>
-          </div>
-        </div>
+        
       </section>
 
       <!-- Vista: Usuarios (solo SENDIX) -->
