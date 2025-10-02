@@ -1578,7 +1578,7 @@ function renderMetrics(){
     list.innerHTML = items.length ? items.map(c=>{
       const l = state.loads.find(x=>x.id===c.loadId);
       const status = c.status==='pending'? '<span class="badge">Pendiente</span>' : `<span class="badge ok">Facturada</span>`;
-      const btn = c.status==='pending' ? `<button class="btn" data-invoice="${c.id}">Marcar facturada</button>` : `<span class="muted">${c.invoiceAt? new Date(c.invoiceAt).toLocaleDateString() : ''}</span>`;
+  const btn = c.status==='pending' ? `<button class="btn" data-invoice="${c.id}">Marcar facturada</button>` : (()=>{ const [f,h]=formatDatePartsForCsv(c.invoiceAt||c.createdAt); return `<span class="muted" title="${formatDateForCsv(c.invoiceAt||c.createdAt)}">${f} ${h}</span>`; })();
       return `<li class="row">
         <div>
           <div><strong>${c.carrier}</strong> <span class="muted">→ ${l?.origen||'?'} → ${l?.destino||'?'} · ${l?.owner||'-'}</span></div>
@@ -1602,16 +1602,18 @@ function renderMetrics(){
       commExport.onclick = ()=>{
         const ym = commPeriod?.value || '';
         const cut = commCut?.value || 'full';
-        const header = ['Transportista','Empresa','Origen','Destino','Fecha','Oferta_ARS','Comision_ARS','Estado','Periodo','Corte'];
+        const header = ['Transportista','Empresa','Origen','Destino','Fecha','Hora','Oferta_ARS','Comision_ARS','Estado','Periodo','Corte'];
         const rows = [header];
         items.forEach(c=>{
           const l = state.loads.find(x=>x.id===c.loadId);
+          const [fecha, hora] = formatDatePartsForCsv(c.invoiceAt||c.createdAt);
           rows.push([
             c.carrier||'',
             l?.owner||'',
             l?.origen||'',
             l?.destino||'',
-            formatDateForCsv(c.invoiceAt||c.createdAt),
+            fecha,
+            hora,
             Number(c.price||0),
             Number(c.amount||0),
             c.status,
@@ -1711,16 +1713,18 @@ function renderMetrics(){
         btnExportCsv.onclick = ()=>{
           const ym = periodInput.value || '';
           const cut = (cutInput?.value||'full');
-          const header = ['Transportista','Empresa','Origen','Destino','Fecha','Oferta_ARS','Comision_ARS','Estado','Periodo','Corte'];
+          const header = ['Transportista','Empresa','Origen','Destino','Fecha','Hora','Oferta_ARS','Comision_ARS','Estado','Periodo','Corte'];
           const rows = [header];
           items.forEach(c=>{
             const l = state.loads.find(x=>x.id===c.loadId);
+            const [fecha, hora] = formatDatePartsForCsv(c.invoiceAt||c.createdAt);
             rows.push([
               selected,
               l?.owner||'',
               l?.origen||'',
               l?.destino||'',
-              formatDateForCsv(c.invoiceAt||c.createdAt),
+              fecha,
+              hora,
               Number(c.price||0),
               Number(c.amount||0),
               c.status,
@@ -1775,11 +1779,12 @@ function csvEscape(v){
 }
 
 function csvBuild(rows, delimiter=','){
-  // Incluir BOM para Excel y CRLF
+  // Incluir BOM para Excel, línea de separador y CRLF
   const sep = delimiter || ',';
   const lines = rows.map(r=> r.map(cell=> csvEscape(cell)).join(sep)).join('\r\n');
   const bom = '\uFEFF';
-  return bom + lines + '\r\n';
+  const meta = `sep=${sep}\r\n`;
+  return bom + meta + lines + '\r\n';
 }
 
 function formatDateForCsv(date){
@@ -1790,6 +1795,21 @@ function formatDateForCsv(date){
   const hh = String(d.getHours()).padStart(2,'0');
   const mi = String(d.getMinutes()).padStart(2,'0');
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+}
+
+// Devuelve partes separadas para Excel-friendly: dd/mm/yyyy y HH:MM (24h)
+function formatDatePartsForCsv(date){
+  try{
+    const d = new Date(date);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mi = String(d.getMinutes()).padStart(2,'0');
+    return [`${dd}/${mm}/${yyyy}`, `${hh}:${mi}`];
+  }catch{
+    return ['', ''];
+  }
 }
 
 // Chat (mediación) — por hilo (loadId + carrier) con SENDIX como 3er participante
