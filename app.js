@@ -1587,8 +1587,18 @@ function renderMetrics(){
       const c = state.commissions.find(x=>x.id===id);
       if(!c) return;
       (async()=>{
-        try{ await API.updateCommission(id, { status:'invoiced', invoiceAt: new Date().toISOString() }); await syncProposalsFromAPI(); }
-        catch{ c.status='invoiced'; c.invoiceAt = new Date().toISOString(); save(); }
+        try{
+          // Tomar inicio del mes del filtro actual (Período), o el mes actual si no hay
+          const ymSel = (document.getElementById('comm-period')?.value || '');
+          const start = monthRange(ymSel).start; // 00:00 del día 1
+          await API.updateCommission(id, { status:'invoiced', invoiceAt: start.toISOString() });
+          await syncProposalsFromAPI();
+        }
+        catch{
+          const ymSel = (document.getElementById('comm-period')?.value || '');
+          const start = monthRange(ymSel).start;
+          c.status='invoiced'; c.invoiceAt = start.toISOString(); save();
+        }
         renderMetrics();
       })();
     }));
