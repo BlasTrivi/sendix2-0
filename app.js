@@ -926,7 +926,7 @@ async function syncProposalsFromAPI(){
       vehicle: r.vehicle || '',
       price: r.price ?? null,
       status: r.status,
-      shipStatus: r.shipStatus || 'pendiente',
+  shipStatus: (r.shipStatus ? String(r.shipStatus).replace(/_/g,'-') : 'pendiente'),
       createdAt: r.createdAt
     }));
     // Derivar comisiones desde proposals que las traen incluidas
@@ -1331,7 +1331,7 @@ function renderShipments(){
       const next = sel.value;
       (async()=>{
         try{
-          await API.updateProposal(id, { shipStatus: next });
+          await API.updateProposal(id, { shipStatus: String(next).replace(/-/g,'_') });
           await syncProposalsFromAPI();
         }catch{
           p.shipStatus = next; save();
@@ -2281,13 +2281,15 @@ function renderTracking(){
     const prev = current.shipStatus || 'pendiente';
     const idx = SHIP_STEPS.indexOf(prev);
     const next = SHIP_STEPS[Math.min(idx+1, SHIP_STEPS.length-1)];
-    current.shipStatus = next;
-    state.trackingStep = next;
-    save();
-    if(next==='entregado' && prev!=='entregado'){
-      notifyDelivered(current);
-    }
-    renderTracking();
+    // Persistir en backend (normalizado)
+    (async()=>{
+      try{ await API.updateProposal(current.id, { shipStatus: String(next).replace(/-/g,'_') }); await syncProposalsFromAPI(); }
+      catch{
+        current.shipStatus = next; state.trackingStep = next; save();
+        if(next==='entregado' && prev!=='entregado'){ notifyDelivered(current); }
+      }
+      renderTracking();
+    })();
     // Refrescar 'mis-cargas' si está visible para que muestre entregado
     const currentRoute2 = (location.hash.replace('#','')||'home');
     if(currentRoute2==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
