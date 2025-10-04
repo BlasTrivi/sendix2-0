@@ -6,6 +6,9 @@
    - Módulos: navegación, auth, empresa, transportista, sendix, chat, tracking
    - Cada función tiene responsabilidad única y renderiza su vista
    ===================================================================== */
+// Guard defensivo: algunas versiones minificadas o integraciones externas podrían
+// asumir una variable global S. Evitamos ReferenceError si no existe.
+if(typeof S==='undefined'){ var S = {}; }
 // Nexo + Chat 3 partes + Tracking global por envío (modo API: sin persistencia en LocalStorage)
 const routes = ['login','home','publicar','mis-cargas','ofertas','mis-postulaciones','mis-envios','moderacion','conversaciones','resumen','usuarios','perfil','chat','tracking'];
 const SHIP_STEPS = ['pendiente','en-carga','en-camino','entregado'];
