@@ -530,6 +530,20 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
   font-size: 1.2em;
   margin-right: 2px;
 }
+/* Tipos de publicación (Contenedor / Granel / Carga general) */
+.publish-types { display:flex; gap:8px; margin:4px 0 8px 0; }
+.publish-types .pt-btn { background:#f2f5f6; border:1px solid var(--border); padding:6px 14px; border-radius:24px; cursor:pointer; font-weight:600; font-size:.85rem; letter-spacing:.3px; transition:.15s background,color,box-shadow,border-color; }
+.publish-types .pt-btn:hover { background:#fff; }
+.publish-types .pt-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 2px 6px rgba(0,0,0,.15); }
+.publish-variant { border:1px dashed var(--border); padding:14px 16px; border-radius:16px; background:linear-gradient(135deg,#ffffff,#f9fbfc); }
+.publish-variant + .publish-variant { margin-top:4px; }
+.publish-variant[hidden]{ display:none !important; }
+.publish-variant label { gap:6px; }
+.publish-variant:has(select[disabled]) { opacity:.55; }
+@media (max-width:640px){
+  .publish-types { flex-wrap:wrap; }
+  .publish-types .pt-btn { flex:1 1 auto; text-align:center; }
+}
 .publish-btn {
   width: 100%;
   margin-top: 10px;

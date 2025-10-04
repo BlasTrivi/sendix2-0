@@ -861,6 +861,7 @@ async function syncLoadsFromAPI(){
       fechaHora: r.fechaHora || r.createdAt,
       descripcion: r.descripcion || '',
       adjuntos: r.attachments || [] ,
+      meta: r.meta || r.extra || {},
       createdAt: r.createdAt
     }));
     save();
@@ -883,7 +884,8 @@ async function addLoad(load){
       volumen: load.volumen ?? null,
       fechaHora: load.fechaHora || null,
       descripcion: load.descripcion||'',
-      attachments: load.adjuntos||[]
+      attachments: load.adjuntos||[],
+      meta: load.meta || {}
     });
     // Insertar arriba adaptado
     state.loads.unshift({
@@ -901,6 +903,7 @@ async function addLoad(load){
       fechaHora: created.fechaHora || created.createdAt,
       descripcion: created.descripcion || '',
       adjuntos: created.attachments || [],
+      meta: created.meta || {},
       createdAt: created.createdAt
     });
     save();
@@ -987,7 +990,7 @@ async function renderLoads(onlyMine=false){
   ul.innerHTML = data.length ? data.map(l=>`
     <li>
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
-      <div class="muted">Tipo: ${l.tipo} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')} · Por: ${l.owner}</div>
+      <div class="muted">Tipo: ${l.tipo} ${l.meta?.containerTipo? '· Cont: '+l.meta.containerTipo:''} ${l.meta?.producto? '· Prod: '+l.meta.producto:''} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')} · Por: ${l.owner}</div>
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row"><button class="btn btn-ghost" data-view="${l.id}">Ver propuestas</button></div>
     </li>`).join('') : '<li class="muted">No hay cargas.</li>';
@@ -1000,21 +1003,53 @@ function initPublishForm(){
   const filePreviews = document.getElementById('file-previews');
   const fileDrop = document.getElementById('file-drop');
   const btnSelectFiles = document.getElementById('btn-select-files');
+  const typeButtons = document.querySelectorAll('.publish-types .pt-btn');
+  const tipoHidden = document.getElementById('publish-tipo');
+  const variants = document.querySelectorAll('.publish-variant');
+  function setVariant(t){
+    variants.forEach(v=>{
+      const active = v.dataset.variant===t;
+      v.hidden = !active;
+      // Habilitar/deshabilitar inputs dentro
+      v.querySelectorAll('input,select,textarea').forEach(inp=>{ inp.disabled = !active; });
+    });
+    typeButtons.forEach(b=> b.classList.toggle('active', b.dataset.publishType===t));
+    if(tipoHidden) tipoHidden.value = t;
+    updatePreview();
+  }
+  typeButtons.forEach(b=> b.addEventListener('click', ()=> setVariant(b.dataset.publishType)));
+  // Asegurar variante inicial
+  setVariant(tipoHidden?.value||'Contenedor');
   let pendingFiles = [];
   function updatePreview() {
     const data = Object.fromEntries(new FormData(form).entries());
-    if(data.origen || data.destino || data.tipo || data.cantidad || data.fechaHora || data.descripcion || pendingFiles.length) {
+    const tipo = data.tipo || data.publishTipo || data['publish-tipo'] || '';
+    const extras = [];
+    if(tipo==='Contenedor'){
+      if(data.containerTipo) extras.push(`<span>🚢 <b>Contenedor:</b> ${escapeHtml(data.containerTipo)}</span>`);
+    } else if(tipo==='Granel'){
+      if(data.granelTipo) extras.push(`<span>🪨 <b>Tipo:</b> ${escapeHtml(data.granelTipo)}</span>`);
+      if(data.producto) extras.push(`<span>🏷️ <b>Producto:</b> ${escapeHtml(data.producto)}</span>`);
+      if(data.requisitos) extras.push(`<span>⚙️ <b>Requisitos:</b> ${escapeHtml(data.requisitos)}</span>`);
+    } else if(tipo==='Carga general'){
+      if(data.camionCompleto) extras.push(`<span>🚚 <b>Camión completo:</b> ${escapeHtml(data.camionCompleto)}</span>`);
+      if(data.presentacion) extras.push(`<span>📦 <b>Presentación:</b> ${escapeHtml(data.presentacion)}</span>`);
+      if(data.cargaPeligrosa) extras.push(`<span>☣️ <b>Peligrosa:</b> ${escapeHtml(data.cargaPeligrosa)}</span>`);
+    }
+    if(data.origen || data.destino || tipo || data.cantidad || data.fechaHora || data.descripcion || pendingFiles.length || extras.length) {
       preview.style.display = 'block';
       preview.innerHTML = `
         <strong>Resumen de carga:</strong><br>
         <span>📍 <b>Origen:</b> ${escapeHtml(data.origen||'-')}</span><br>
         <span>🎯 <b>Destino:</b> ${escapeHtml(data.destino||'-')}</span><br>
-        <span>📦 <b>Tipo:</b> ${escapeHtml(data.tipo||'-')}</span><br>
-        <span>🔢 <b>Cantidad:</b> ${escapeHtml(data.cantidad||'-')} ${escapeHtml(data.unidad||'')}</span><br>
-        <span>📐 <b>Dimensiones:</b> ${escapeHtml(data.dimensiones||'-')}</span><br>
-        <span>⚖️ <b>Peso:</b> ${escapeHtml(data.peso||'-')} kg · 🧪 <b>Volumen:</b> ${escapeHtml(data.volumen||'-')} m³</span><br>
-        <span>📅 <b>Fecha y hora:</b> ${data.fechaHora? new Date(data.fechaHora).toLocaleString() : '-'}</span><br>
-        <span>📝 <b>Comentarios:</b> ${escapeHtml(data.descripcion||'-')}</span><br>
+        <span>📦 <b>Tipo:</b> ${escapeHtml(tipo||'-')}</span><br>
+        ${data.cantidad? `<span>🔢 <b>Cantidad:</b> ${escapeHtml(data.cantidad)} ${escapeHtml(data.unidad||'')}</span><br>`:''}
+        ${data.dimensiones? `<span>📐 <b>Dimensiones:</b> ${escapeHtml(data.dimensiones)}</span><br>`:''}
+        ${(data.peso||data.volumen)? `<span>⚖️ <b>Peso:</b> ${escapeHtml(data.peso||'-')} kg · 🧪 <b>Volumen:</b> ${escapeHtml(data.volumen||'-')} m³</span><br>`:''}
+        ${data.fechaHora? `<span>📅 <b>Fecha:</b> ${new Date(data.fechaHora).toLocaleString()}</span><br>`:''}
+        ${data.fechaHoraDescarga? `<span>📅 <b>Descarga estimada:</b> ${new Date(data.fechaHoraDescarga).toLocaleString()}</span><br>`:''}
+        ${extras.join('<br>')}${extras.length?'<br>':''}
+        ${data.descripcion? `<span>📝 <b>Comentarios:</b> ${escapeHtml(data.descripcion)}</span><br>`:''}
         ${pendingFiles.length? `<div class="attachments">${pendingFiles.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview}" alt="adjunto"/>`:`<span class="file-chip">${escapeHtml(a.name)}</span>`).join('')} ${pendingFiles.length>4? `<span class="muted">+${pendingFiles.length-4} más</span>`:''}</div>`:''}
       `;
     } else {
@@ -1106,11 +1141,12 @@ function initPublishForm(){
     e.preventDefault();
     if(state.user?.role!=='empresa'){ alert('Ingresá como Empresa.'); return; }
     const data = Object.fromEntries(new FormData(form).entries());
-    // Normalizar y guardar nuevos campos
+    const tipo = data.tipo||'';
+    // Campos base
     const load = {
       origen: (data.origen||'').trim(),
       destino: (data.destino||'').trim(),
-      tipo: data.tipo||'',
+      tipo,
       cantidad: data.cantidad? Number(data.cantidad) : null,
       unidad: data.unidad||'',
       dimensiones: (data.dimensiones||'').trim(),
@@ -1118,10 +1154,30 @@ function initPublishForm(){
       volumen: data.volumen? Number(data.volumen) : null,
       fechaHora: data.fechaHora || null,
       descripcion: (data.descripcion||'').trim(),
-      adjuntos: pendingFiles
+      adjuntos: pendingFiles,
+      meta: {}
     };
+    // Enriquecer según tipo
+    if(tipo==='Contenedor'){
+      load.meta.containerTipo = data.containerTipo||'';
+    } else if(tipo==='Granel'){
+      load.meta.granelTipo = data.granelTipo||'';
+      load.meta.producto = data.producto||'';
+      load.meta.requisitos = data.requisitos||'';
+      load.meta.fechaHoraDescarga = data.fechaHoraDescarga||'';
+      load.meta.senasa = data.senasa||'';
+    } else if(tipo==='Carga general'){
+      load.meta.camionCompleto = data.camionCompleto||'';
+      load.meta.producto = data.producto||'';
+      load.meta.presentacion = data.presentacion||'';
+      load.meta.fechaHoraDescarga = data.fechaHoraDescarga||'';
+      load.meta.cargaPeligrosa = data.cargaPeligrosa||'';
+      load.meta.senasa = data.senasa||'';
+    }
     addLoad(load);
     form.reset();
+    // Resetear a variante inicial
+    setVariant('Contenedor');
     updatePreview();
     // limpiar previews
     pendingFiles = [];
@@ -1863,7 +1919,7 @@ function formatEstadoCsv(status){
   if(s==='pending') return 'Pendiente';
   return s ? (s[0].toUpperCase()+s.slice(1)) : '';
 }
-
+S
 // Chat (mediación) — por hilo (loadId + carrier) con SENDIX como 3er participante
 function openChatByProposalId(propId){
   const p = state.proposals.find(x=>x.id===propId);
