@@ -774,7 +774,11 @@ const API = {
   },
   async createLoad(payload){
   const res = await fetch(`${API.base}/api/loads`, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(payload), credentials: 'include' });
-    if(!res.ok) throw new Error(await res.text());
+    if(!res.ok){
+      const txt = await res.text().catch(()=> '');
+      console.warn('createLoad fallo', res.status, txt);
+      throw new Error(txt || ('Error '+res.status));
+    }
     return res.json();
   },
   async listProposals(params={}){
@@ -1140,7 +1144,7 @@ function initPublishForm(){
       if(pendingReads===0){ renderFileCards(); updatePreview(); }
     });
   }
-  form.addEventListener('submit', (e)=>{
+  form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     if(state.user?.role!=='empresa'){ alert('Ingresá como Empresa.'); return; }
     const data = Object.fromEntries(new FormData(form).entries());
@@ -1177,16 +1181,27 @@ function initPublishForm(){
       load.meta.cargaPeligrosa = data.cargaPeligrosa||'';
       load.meta.senasa = data.senasa||'';
     }
-    addLoad(load);
-    form.reset();
-    // Resetear a variante inicial
-    setVariant('Contenedor');
-    updatePreview();
-    // limpiar previews
-    pendingFiles = [];
-    if(filePreviews){ filePreviews.innerHTML=''; filePreviews.style.display='none'; }
-    alert('¡Publicada! Esperá postulaciones que Sendix moderará.');
-    navigate('mis-cargas');
+    try{
+      await addLoad(load);
+      form.reset();
+      // Resetear a variante inicial
+      setVariant('Contenedor');
+      updatePreview();
+      // limpiar previews
+      pendingFiles = [];
+      if(filePreviews){ filePreviews.innerHTML=''; filePreviews.style.display='none'; }
+      alert('¡Publicada! Esperá postulaciones que Sendix moderará.');
+      navigate('mis-cargas');
+    }catch(err){
+      console.error('Error al publicar carga', err);
+      // Si es 401 mantenemos la vista y sugerimos re login
+      const msg = String(err&&err.message||'Error');
+      if(/401|unauthorized|forbidden|role required/i.test(msg)){
+        alert('Tu sesión parece expirada. Iniciá sesión nuevamente.');
+      } else {
+        alert('No se pudo publicar la carga: '+ msg);
+      }
+    }
   });
   updatePreview();
 }
