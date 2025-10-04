@@ -4,10 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SENDIX</title>
-  <link rel="stylesheet" href="styles.css?v=20250923-1"/>
+  <meta name="theme-color" content="#0E2F44" />
+  <link rel="stylesheet" href="styles.css?v=20251004"/>
   <link rel="icon" href="assets/logo.png">
 </head>
 <body>
+  <a href="#view-container" class="skip-link">Saltar al contenido principal</a>
   <!-- HEADER full-width con contenedor interno -->
   <header class="topbar">
     <div class="topbar-inner">
@@ -507,29 +509,29 @@
     </main>
 
     <!-- Bottom navs -->
-    <nav class="bottombar" id="nav-empresa">
-      <button class="tab" data-nav="home">🏠</button>
-      <button class="tab" data-nav="publicar">📝</button>
-      <button class="tab" data-nav="mis-cargas">📦</button>
-      <button class="tab" data-nav="conversaciones">💬</button>
-      <button class="tab" data-nav="tracking">🧭</button>
+    <nav class="bottombar" id="nav-empresa" aria-label="Navegación empresa">
+      <button class="tab" data-nav="home" aria-label="Inicio">🏠</button>
+      <button class="tab" data-nav="publicar" aria-label="Publicar carga">📝</button>
+      <button class="tab" data-nav="mis-cargas" aria-label="Mis cargas">📦</button>
+      <button class="tab" data-nav="conversaciones" aria-label="Conversaciones">💬</button>
+      <button class="tab" data-nav="tracking" aria-label="Tracking">🧭</button>
     </nav>
 
-    <nav class="bottombar" id="nav-transportista">
-      <button class="tab" data-nav="home">🏠</button>
-      <button class="tab" data-nav="ofertas">🔎</button>
-      <button class="tab" data-nav="mis-postulaciones">📨</button>
-      <button class="tab" data-nav="mis-envios">🚚</button>
-      <button class="tab" data-nav="conversaciones">💬</button>
-      <button class="tab" data-nav="tracking">🧭</button>
+    <nav class="bottombar" id="nav-transportista" aria-label="Navegación transportista">
+      <button class="tab" data-nav="home" aria-label="Inicio">🏠</button>
+      <button class="tab" data-nav="ofertas" aria-label="Ofertas disponibles">🔎</button>
+      <button class="tab" data-nav="mis-postulaciones" aria-label="Mis postulaciones">📨</button>
+      <button class="tab" data-nav="mis-envios" aria-label="Mis envíos">🚚</button>
+      <button class="tab" data-nav="conversaciones" aria-label="Conversaciones">💬</button>
+      <button class="tab" data-nav="tracking" aria-label="Tracking">🧭</button>
     </nav>
 
-    <nav class="bottombar" id="nav-sendix">
-      <button class="tab" data-nav="home">🏠</button>
-      <button class="tab" data-nav="moderacion">🗂️</button>
-      <button class="tab" data-nav="conversaciones">💬 <span id="nav-unread" class="badge-pill" style="display:none">0</span></button>
-      <button class="tab" data-nav="resumen">📊</button>
-      <button class="tab" data-nav="tracking">🧭</button>
+    <nav class="bottombar" id="nav-sendix" aria-label="Navegación SENDIX">
+      <button class="tab" data-nav="home" aria-label="Inicio">🏠</button>
+      <button class="tab" data-nav="moderacion" aria-label="Moderación">🗂️</button>
+      <button class="tab" data-nav="conversaciones" aria-label="Conversaciones">💬 <span id="nav-unread" class="badge-pill" style="display:none">0</span></button>
+      <button class="tab" data-nav="resumen" aria-label="Resumen">📊</button>
+      <button class="tab" data-nav="tracking" aria-label="Tracking">🧭</button>
     </nav>
   </div>
 
@@ -547,6 +549,6 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=20250923-1"></script>
+  <script src="app.js?v=20251004"></script>
 </body>
 </html>
