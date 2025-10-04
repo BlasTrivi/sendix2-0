@@ -1004,6 +1004,7 @@ async function renderLoads(onlyMine=false){
   ul.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click', ()=>{ navigate('mis-cargas'); renderMyLoadsWithProposals(b.dataset.view); }));
 }
 function initPublishForm(){
+  console.log('[publish] initPublishForm start');
   const form = document.getElementById('publish-form');
   const preview = document.getElementById('publish-preview');
   const fileInput = document.getElementById('publish-files');
@@ -1013,6 +1014,8 @@ function initPublishForm(){
   const typeButtons = document.querySelectorAll('.publish-types .pt-btn');
   const tipoHidden = document.getElementById('publish-tipo');
   const variants = document.querySelectorAll('.publish-variant');
+  // Declarar antes de cualquier llamada a updatePreview (que ocurre dentro de setVariant)
+  let pendingFiles = [];
   function setVariant(t){
     variants.forEach(v=>{
       const active = v.dataset.variant===t;
@@ -1027,7 +1030,6 @@ function initPublishForm(){
   typeButtons.forEach(b=> b.addEventListener('click', ()=> setVariant(b.dataset.publishType)));
   // Asegurar variante inicial
   setVariant(tipoHidden?.value||'Contenedor');
-  let pendingFiles = [];
   function updatePreview() {
     const data = Object.fromEntries(new FormData(form).entries());
     const tipo = data.tipo || data.publishTipo || data['publish-tipo'] || '';
