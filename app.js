@@ -504,10 +504,12 @@ async function renderProfile(emailToView){
   const saveBtn = document.getElementById('profile-save');
   const form = document.getElementById('profile-form');
   if(!form) return;
-  // Target: propio por defecto; si SENDIX pasó email, ver de terceros (read-only)
-  // Nueva política: si el usuario es SENDIX sólo puede ver su propio perfil, ignoramos emailToView
-  const email = (isSendix ? (state.user?.email||'') : (emailToView || form.dataset.viewEmail || state.user?.email || '')).toLowerCase();
-  const viewingOther = (!isSendix) && email && email !== String(state.user?.email||'').toLowerCase();
+  // Política revisada: SENDIX puede ver otros perfiles (solo lectura) y su propio perfil en vista mínima.
+  const rawEmail = (emailToView || form.dataset.viewEmail || state.user?.email || '');
+  const email = rawEmail.toLowerCase();
+  const selfEmail = String(state.user?.email||'').toLowerCase();
+  const isSelf = email === selfEmail;
+  const viewingOther = !isSelf; // cualquier email distinto al propio
   // Encontrar fuente
   let me = viewingOther ? ((state.adminUsers||[]).find(u=> String(u.email||'').toLowerCase()===email) || (state.users||[]).find(u=> String(u.email||'').toLowerCase()===email)) : state.user;
   if(viewingOther && !me){
@@ -526,8 +528,8 @@ async function renderProfile(emailToView){
   if(back) back.onclick = ()=>{ if(viewingOther) navigate('usuarios'); else navigate('home'); };
   // Renderizar campos según rol
   const role = me.role||'empresa';
-  // Si es SENDIX: mostrar sólo datos básicos en modo lectura (sin botón guardar, sin inputs editables)
-  if(role==='sendix'){
+  // Vista mínima solo cuando el usuario activo de rol sendix ve su propio perfil
+  if(role==='sendix' && isSendix && isSelf){
     if(title) title.textContent = 'Mi perfil';
     if(saveBtn) saveBtn.style.display = 'none';
     if(back) back.onclick = ()=> navigate('home');
@@ -538,6 +540,8 @@ async function renderProfile(emailToView){
       + `</div>`;
     return;
   }
+  // Si se está viendo otro perfil (por sendix u otro flujo) ocultar botón guardar
+  if(saveBtn) saveBtn.style.display = viewingOther ? 'none' : '';
   function inputRow(label, name, value='', type='text', attrs=''){
     const dis = viewingOther ? 'disabled' : '';
     return `<label>${label}<input ${dis} type="${type}" name="${name}" value="${escapeHtml(value||'')}" ${attrs}/></label>`;
