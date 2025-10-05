@@ -330,6 +330,17 @@ app.get('/healthz', (_req, res) => {
 
 // ---- API: Loads ----
 // Cuerpo base de una carga (sin propietario)
+// Helper para parsear fechas provenientes de <input type="datetime-local"> (formato 'YYYY-MM-DDTHH:mm' opcional con segundos)
+function parseFechaHora(raw: any): Date | undefined {
+  if(typeof raw !== 'string') return undefined;
+  const s = raw.trim();
+  if(!s) return undefined;
+  // Aceptar 'YYYY-MM-DDTHH:mm' o 'YYYY-MM-DDTHH:mm:ss'
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) return undefined;
+  const d = new Date(s);
+  if(Number.isNaN(d.getTime())) return undefined;
+  return d;
+}
 const LoadFieldsSchema = z.object({
   origen: z.string().min(1),
   destino: z.string().min(1),
@@ -396,7 +407,8 @@ app.post('/api/loads', requireRole('empresa'), async (req, res) => {
           dimensiones: body.dimensiones || undefined,
           peso: body.peso ?? undefined,
           volumen: body.volumen ?? undefined,
-          fechaHora: body.fechaHora ? new Date(body.fechaHora) : undefined,
+          // Parseo tolerante: si la fecha viene mal, simplemente se omite en lugar de generar 400
+          fechaHora: parseFechaHora(body.fechaHora) || undefined,
           descripcion: body.descripcion || undefined,
           attachments: body.attachments ?? undefined
         },
@@ -425,7 +437,7 @@ app.post('/api/loads', requireRole('empresa'), async (req, res) => {
         dimensiones: body.dimensiones || undefined,
         peso: body.peso ?? undefined,
         volumen: body.volumen ?? undefined,
-        fechaHora: body.fechaHora ? new Date(body.fechaHora) : undefined,
+        fechaHora: parseFechaHora(body.fechaHora) || undefined,
         descripcion: body.descripcion || undefined,
         attachments: body.attachments ?? undefined
       },
@@ -481,7 +493,7 @@ app.patch('/api/loads/:id', requireRole('empresa'), async (req, res) => {
         dimensiones: data.dimensiones ?? undefined,
         peso: data.peso ?? undefined,
         volumen: data.volumen ?? undefined,
-        fechaHora: data.fechaHora ? new Date(data.fechaHora) : undefined,
+        fechaHora: parseFechaHora(data.fechaHora) || undefined,
         descripcion: data.descripcion ?? undefined,
         attachments: data.attachments ?? undefined,
       },
