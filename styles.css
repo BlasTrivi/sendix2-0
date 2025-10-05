@@ -315,7 +315,7 @@ body.route-conversaciones #view-container{ overflow: hidden; padding-bottom: 18p
 .chat-box.big::-webkit-scrollbar-thumb{ background: rgba(14,47,68,.28); border-radius: 8px; }
 .chat-box.big::-webkit-scrollbar-track{ background: transparent; }
 
-.thread-list{ scrollbar-width: thin; -ms-overflow-style: auto; position: relative }
+.thread-list{ scrollbar-width: thin; -ms-overflow-style: auto; position: relative; overflow:auto !important; touch-action: pan-y; }
 .thread-list::-webkit-scrollbar{ width: 10px; height: 10px; }
 .thread-list::-webkit-scrollbar-thumb{ background: rgba(14,47,68,.28); border-radius: 8px; }
 .thread-list::-webkit-scrollbar-track{ background: transparent; }
@@ -326,13 +326,14 @@ body.route-conversaciones #view-container{ overflow: hidden; padding-bottom: 18p
   content: "";
   position: absolute;
   left: 0; right: 0;
-  height: 16px;
-  pointer-events: none;
+  height: 28px; /* un poco más alto para indicar scroll */
+  pointer-events: none; /* no bloquear wheel ni drag */
   opacity: 0;
-  transition: opacity .15s ease;
+  transition: opacity .18s ease;
+  z-index: 1;
 }
-.thread-list::before{ top:0; background: linear-gradient(to bottom, #ffffff 30%, rgba(255,255,255,0)); border-top-left-radius: 16px; border-top-right-radius: 16px; }
-.thread-list::after{ bottom:0; background: linear-gradient(to top, #ffffff 30%, rgba(255,255,255,0)); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
+.thread-list::before{ top:0; background: linear-gradient(to bottom, #ffffff 40%, rgba(255,255,255,0)); border-top-left-radius: 16px; border-top-right-radius: 16px; }
+.thread-list::after{ bottom:0; background: linear-gradient(to top, #ffffff 40%, rgba(255,255,255,0)); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
 .thread-list.show-top-fade::before{ opacity:1 }
 .thread-list.show-bottom-fade::after{ opacity:1 }
 
