@@ -145,14 +145,14 @@ body{
 /* Ocultar visualmente la barra de scroll del contenedor principal en todas las vistas (manteniendo desplazamiento) */
 #view-container{ scrollbar-width: none; -ms-overflow-style: none; }
 #view-container::-webkit-scrollbar{ width: 0; height: 0; }
-/* En la vista de chat, evitamos scroll de la vista completa y lo dejamos al panel de mensajes */
-.view.active[data-route="conversaciones"]{ overflow:hidden; display:flex; flex-direction:column; min-height:0; }
-.view.active[data-route="conversaciones"] .chat-wrapper{ flex:0 0 auto; display:grid; grid-template-columns: 1fr; height: var(--chat-h); margin-bottom: calc(var(--bbar-h) + 12px); }
+/* Vista conversaciones: permitir que los paneles internos gestionen su propio scroll sin bloquear el wheel */
+.view.active[data-route="conversaciones"]{ display:flex; flex-direction:column; min-height:0; }
+.view.active[data-route="conversaciones"] .chat-wrapper{ flex:1 1 auto; display:grid; grid-template-columns: 1fr; height:auto; max-height:calc(100vh - (var(--bbar-h) + 120px)); margin-bottom: calc(var(--bbar-h) + 12px); overflow:hidden; }
 
 /* En la ruta de conversaciones, no scrollear el contenedor general */
-body.route-conversaciones #view-container{ overflow: hidden; padding-bottom: 18px; }
+body.route-conversaciones #view-container{ overflow:hidden; padding-bottom:18px; }
 .chat-main{ display:flex; flex-direction:column; }
-.chat-box.big{ flex:1; overflow:auto; }
+.chat-box.big{ flex:1; overflow:auto; overscroll-behavior:contain; }
 
 /* Animación de vistas */
 .view{display:none; animation:fade .15s ease-out}
