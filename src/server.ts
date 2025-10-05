@@ -569,18 +569,50 @@ app.get('/api/proposals', async (req, res) => {
 
 // Actualizar propuesta
 app.patch('/api/proposals/:id', async (req, res) => {
-  try{
+  try {
+    if(!req.user) return res.status(401).json({ error: 'Auth required' });
     const id = String(req.params.id);
+    const existing = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
+    if(!existing) return res.status(404).json({ error: 'Not found' });
+    // Autorización: sólo SENDIX, la empresa dueña de la load o el transportista asignado
+    if(!userCanAccessProposal(req.user, { load: { ownerId: existing.load.ownerId }, carrierId: existing.carrierId })){
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const data = ProposalUpdateSchema.parse(req.body);
+    // Reglas de negocio: limitar quién puede cambiar cada campo
+    const updateData: any = {};
+    if(typeof data.vehicle !== 'undefined' || typeof data.price !== 'undefined'){
+      // Sólo transportista (carrier) o sendix pueden ajustar vehicle/price
+      if(req.user.role === 'transportista' && req.user.id !== existing.carrierId){
+        return res.status(403).json({ error: 'No autorizado a editar vehicle/price' });
+      }
+      if(req.user.role === 'empresa' && req.user.id === existing.load.ownerId){
+        // Empresa no modifica vehicle/price directamente
+      } else {
+        updateData.vehicle = data.vehicle ?? undefined;
+        updateData.price = data.price ?? undefined;
+      }
+    }
+    if(typeof data.shipStatus !== 'undefined'){
+      // Transportista (dueño), empresa dueña o sendix pueden avanzar shipStatus
+      if(!(req.user.role === 'sendix' || (req.user.role === 'transportista' && req.user.id === existing.carrierId) || (req.user.role === 'empresa' && req.user.id === existing.load.ownerId))){
+        return res.status(403).json({ error: 'No autorizado a cambiar shipStatus' });
+      }
+      updateData.shipStatus = data.shipStatus as any;
+    }
+    if(typeof data.status !== 'undefined'){
+      // status se gestiona por endpoints dedicados (filter/reject/select) – bloquear aquí salvo sendix
+      if(req.user.role !== 'sendix'){
+        return res.status(403).json({ error: 'No autorizado a cambiar status directamente' });
+      }
+      updateData.status = data.status;
+    }
+    if(Object.keys(updateData).length === 0){
+      return res.status(400).json({ error: 'Nada para actualizar' });
+    }
     const upd = await prisma.proposal.update({
       where: { id },
-      data: {
-        vehicle: data.vehicle ?? undefined,
-        price: data.price ?? undefined,
-        status: data.status ?? undefined,
-        // Tipado laxo: Prisma enum ShipStatus existe, pero usamos any para evitar discrepancias de tipo generadas
-        shipStatus: (data.shipStatus as any) ?? undefined
-      },
+      data: updateData,
       include: {
         load: { include: { owner: { select: { id:true, name:true, email:true } } } },
         carrier: { select: { id:true, name:true, email:true } },
@@ -588,12 +620,11 @@ app.patch('/api/proposals/:id', async (req, res) => {
       }
     });
     // Emitir actualización de tracking si cambia shipStatus
-    if(typeof data.shipStatus !== 'undefined'){
-      try{ io.to(`proposal:${id}`).emit('ship:update', { proposalId: id, shipStatus: upd.shipStatus, updatedAt: new Date().toISOString() }); }catch{}
-      // Si se marcó como entregado o estados intermedios, registrar un mensaje en el chat del envío y emitirlo
-      const status = data.shipStatus;
+    if(typeof updateData.shipStatus !== 'undefined'){
+      try { io.to(`proposal:${id}`).emit('ship:update', { proposalId: id, shipStatus: upd.shipStatus, updatedAt: new Date().toISOString() }); } catch {}
+      const status = updateData.shipStatus;
       if(status === 'entregado' || status === 'en_carga' || status === 'en_camino'){
-        try{
+        try {
           const th = await ensureThreadForProposal(id);
           const msgText = status === 'entregado'
             ? '🚚 Entrega confirmada por el transportista.'
@@ -601,13 +632,13 @@ app.patch('/api/proposals/:id', async (req, res) => {
           const created = await prisma.message.create({
             data: {
               threadId: th.id,
-              fromUserId: req.user?.id || upd.carrierId, // si no hay user en contexto, fallback al transportista
+              fromUserId: req.user?.id || upd.carrierId,
               text: msgText,
               attachments: undefined
             },
             include: { fromUser: { select: { id:true, name:true, role:true } } }
           });
-          try{
+          try {
             io.to(`proposal:${id}`).emit('chat:message', {
               proposalId: id,
               id: created.id,
@@ -617,12 +648,12 @@ app.patch('/api/proposals/:id', async (req, res) => {
               replyToId: created.replyToId,
               attachments: created.attachments || null
             });
-          }catch{}
-        }catch(err){ console.warn('No se pudo registrar mensaje de entrega:', err); }
+          } catch {}
+        } catch(err) { console.warn('No se pudo registrar mensaje de entrega:', err); }
       }
     }
     res.json(upd);
-  }catch(err:any){
+  } catch(err:any) {
     res.status(400).json({ error: err?.message || String(err) });
   }
 });
@@ -647,32 +678,28 @@ app.post('/api/proposals/:id/reject', requireRole('sendix'), async (req, res) =>
 
 // Seleccionar ganadora: aprueba ésta y rechaza el resto del mismo load; crea comisión si no existe
 app.post('/api/proposals/:id/select', requireRole('empresa'), async (req, res) => {
-  try{
+  try {
+    if(!req.user) return res.status(401).json({ error: 'Auth required' });
     const id = String(req.params.id);
     const winner = await prisma.proposal.findUnique({ where: { id }, include: { load: true, thread: true } });
     if(!winner) return res.status(404).json({ error: 'Not found' });
+    if(winner.load.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
     await prisma.$transaction([
       prisma.proposal.update({ where: { id }, data: { status: 'approved', shipStatus: winner.shipStatus ?? 'pendiente' } }),
       prisma.proposal.updateMany({ where: { loadId: winner.loadId, NOT: { id } }, data: { status: 'rejected' } })
     ]);
-    // Asegurar que exista un Thread para esta propuesta seleccionada
-    try{
+    try {
       if(!winner.thread){
-        // Buscar thread existente por (loadId, carrierId) o crearlo y vincularlo a la propuesta
         const existing = await prisma.thread.findFirst({ where: { loadId: winner.loadId, carrierId: winner.carrierId } });
-        if(existing){
-          await prisma.thread.update({ where: { id: existing.id }, data: { proposalId: id } });
-        } else {
-          await prisma.thread.create({ data: { loadId: winner.loadId, carrierId: winner.carrierId, proposalId: id } });
-        }
+        if(existing) await prisma.thread.update({ where: { id: existing.id }, data: { proposalId: id } });
+        else await prisma.thread.create({ data: { loadId: winner.loadId, carrierId: winner.carrierId, proposalId: id } });
       }
-    }catch(err){
+    } catch(err) {
       console.warn('No se pudo asegurar Thread al seleccionar propuesta:', err);
     }
-    // Comisión (10%) si no existe
     const COMM_RATE = 0.10;
-    const existing = await prisma.commission.findUnique({ where: { proposalId: id } });
-    if(!existing){
+    const existingComm = await prisma.commission.findUnique({ where: { proposalId: id } });
+    if(!existingComm){
       await prisma.commission.create({
         data: {
           proposalId: id,
@@ -684,7 +711,7 @@ app.post('/api/proposals/:id/select', requireRole('empresa'), async (req, res) =
     }
     const updated = await prisma.proposal.findUnique({ where: { id }, include: { commission: true } });
     res.json(updated);
-  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
+  } catch(err:any) { res.status(400).json({ error: err?.message || String(err) }); }
 });
 
 // ---- API: Chat (Threads/Messages/Reads) ----

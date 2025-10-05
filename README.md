@@ -136,12 +136,16 @@ localStorage.removeItem('sendix.step');
 
 ## Limitaciones y siguientes pasos (ideas)
 
-- Autenticación real y backend (API) no incluidos; todo es demo local.
-- Subida real de archivos no implementada (se previsualiza con `URL.createObjectURL`).
+- Subida real de archivos aún no implementada (solo previsualización con `URL.createObjectURL`).
+- Falta rate limiting (login / forgot password) y protección CSRF si se expone en múltiples dominios.
+- No hay tests automatizados (unit / integración) ni linting configurado.
 - Mejoras opcionales:
 	- Badge “Nuevo mensaje” cuando no estás scrolleado al final del chat.
 	- Filtros en “Mis cargas” (p.ej. ocultar entregados) y búsqueda.
 	- Exportar/Importar estado demo (JSON) para compartir escenarios.
+	- Modularizar `server.ts` (>1000 líneas) y `app.js` (>2500 líneas) en capas (routes / services / lib / sockets).
+	- Añadir `helmet`, rate limiting y logging estructurado.
+	- Sustituir `prisma db push` por migraciones (`prisma migrate deploy`).
 
 ---
 
