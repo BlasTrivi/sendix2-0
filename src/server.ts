@@ -57,7 +57,11 @@ const COOKIE_SAMESITE = DEFAULT_SAMESITE;
 type SameSiteOpt = 'lax' | 'none' | 'strict';
 function getCookieOpts(){
   const sameSite = (['lax','none','strict'].includes(COOKIE_SAMESITE) ? COOKIE_SAMESITE : 'lax') as SameSiteOpt;
-  const secure = (process.env.NODE_ENV === 'production') || sameSite === 'none';
+  // Mejora: en desarrollo (http://localhost) permitimos Secure=false aunque SameSite sea 'none'
+  // para que el navegador (Chrome/Firefox) no descarte la cookie en entorno local sin HTTPS.
+  // En producción siempre Secure=true; si SameSite='none' se exige Secure igualmente.
+  const isProd = process.env.NODE_ENV === 'production';
+  const secure = isProd; // solo producción
   return { httpOnly: true, sameSite, secure, maxAge: 7*24*60*60*1000 } as const;
 }
 
@@ -402,7 +406,13 @@ app.post('/api/loads', requireRole('empresa'), async (req, res) => {
     }
 
     // Compatibilidad: si por alguna razón se llama sin sesión, aceptar ownerEmail/ownerName
-    const body = LoadCreateSchema.parse(req.body);
+    let body: z.infer<typeof LoadCreateSchema>;
+    try {
+      body = LoadCreateSchema.parse(req.body);
+    } catch (e:any) {
+      // Caso típico en dev: el login no persistió (cookie Secure descartada) y el front envía sólo campos de carga.
+      return res.status(401).json({ error: 'Necesitás iniciar sesión (empresa) para publicar la carga. Si estás en desarrollo y tenías una sesión, recargá y volvé a iniciar. (Faltan ownerEmail / ownerName en el body)' });
+    }
     const owner = await ensureEmpresaUser(body.ownerEmail.toLowerCase(), body.ownerName);
     const created = await prisma.load.create({
       data: {
