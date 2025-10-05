@@ -248,10 +248,10 @@ body.route-conversaciones #view-container{ overflow: hidden; padding-bottom: 18p
 /* --------------------
    Chat
    -------------------- */
-.chat-wrapper{display:grid; grid-template-columns: 320px 1fr; gap:16px; height: 100%; min-height: 520px; }
-.chat-sidebar{background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); display:flex; flex-direction:column; box-shadow: var(--shadow-sm); height:100%; min-height:0}
+.chat-wrapper{display:grid; grid-template-columns: 320px 1fr; gap:16px; height:calc(100vh - 170px); min-height:520px; max-height:calc(100vh - 120px); overflow:hidden; }
+.chat-sidebar{background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); display:flex; flex-direction:column; box-shadow: var(--shadow-sm); height:100%; min-height:0; overflow:hidden}
 .chat-sidebar-header{padding:12px; border-bottom:1px solid var(--border); display:grid; gap:8px}
-.thread-list{list-style:none; margin:0; padding:0; overflow:auto; -webkit-overflow-scrolling: touch; display:grid; gap:6px; flex:1 1 auto; min-height:0}
+.thread-list{list-style:none; margin:0; padding:0; overflow:auto; -webkit-overflow-scrolling: touch; display:grid; gap:6px; flex:1 1 auto; min-height:0;}
 .thread-item{display:flex; align-items:center; gap:12px; padding:12px; border:none; border-radius:14px; cursor:pointer; transition: background .15s ease}
 .thread-item{ min-height: 48px; }
 .thread-item:hover{background:#eef6f7}
