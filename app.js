@@ -505,8 +505,9 @@ async function renderProfile(emailToView){
   const form = document.getElementById('profile-form');
   if(!form) return;
   // Target: propio por defecto; si SENDIX pasó email, ver de terceros (read-only)
-  const email = (emailToView || form.dataset.viewEmail || state.user?.email || '').toLowerCase();
-  const viewingOther = isSendix && email && email !== String(state.user?.email||'').toLowerCase();
+  // Nueva política: si el usuario es SENDIX sólo puede ver su propio perfil, ignoramos emailToView
+  const email = (isSendix ? (state.user?.email||'') : (emailToView || form.dataset.viewEmail || state.user?.email || '')).toLowerCase();
+  const viewingOther = (!isSendix) && email && email !== String(state.user?.email||'').toLowerCase();
   // Encontrar fuente
   let me = viewingOther ? ((state.adminUsers||[]).find(u=> String(u.email||'').toLowerCase()===email) || (state.users||[]).find(u=> String(u.email||'').toLowerCase()===email)) : state.user;
   if(viewingOther && !me){
@@ -525,6 +526,18 @@ async function renderProfile(emailToView){
   if(back) back.onclick = ()=>{ if(viewingOther) navigate('usuarios'); else navigate('home'); };
   // Renderizar campos según rol
   const role = me.role||'empresa';
+  // Si es SENDIX: mostrar sólo datos básicos en modo lectura (sin botón guardar, sin inputs editables)
+  if(role==='sendix'){
+    if(title) title.textContent = 'Mi perfil';
+    if(saveBtn) saveBtn.style.display = 'none';
+    if(back) back.onclick = ()=> navigate('home');
+    form.innerHTML = `<div class="profile-basic">`
+      + `<p><strong>Nombre:</strong> ${escapeHtml(me.name||'')}</p>`
+      + `<p><strong>Email:</strong> ${escapeHtml(me.email||'')}</p>`
+      + `<p><strong>Rol:</strong> SENDIX</p>`
+      + `</div>`;
+    return;
+  }
   function inputRow(label, name, value='', type='text', attrs=''){
     const dis = viewingOther ? 'disabled' : '';
     return `<label>${label}<input ${dis} type="${type}" name="${name}" value="${escapeHtml(value||'')}" ${attrs}/></label>`;
