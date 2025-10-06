@@ -40,8 +40,8 @@ function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// POST /api/forgot-password
-router.post("/forgot-password", async (req, res) => {
+// --- Handler reutilizable para forgot ---
+async function handleForgot(req: express.Request, res: express.Response){
   if(!req.is('application/json')){
     return res.status(415).json({ error: 'Content-Type debe ser application/json' });
   }
@@ -97,10 +97,15 @@ router.post("/forgot-password", async (req, res) => {
   }
 
   res.json({ ok: true });
-});
+}
 
-// POST /api/reset-password
-router.post("/reset-password", async (req, res) => {
+// POST /api/forgot-password (ruta principal)
+router.post("/forgot-password", handleForgot);
+// Compat: antiguo endpoint /api/auth/forgot
+router.post("/auth/forgot", handleForgot);
+
+// --- Handler reutilizable para reset ---
+async function handleReset(req: express.Request, res: express.Response){
   if(!req.is('application/json')){
     return res.status(415).json({ error: 'Content-Type debe ser application/json' });
   }
@@ -108,24 +113,40 @@ router.post("/reset-password", async (req, res) => {
     return res.status(400).json({ error: 'Body JSON requerido' });
   }
   const { email, token, password } = req.body as any;
-  if (!email || !token || !password || typeof email!=='string' || typeof token!=='string' || typeof password!=='string') return res.status(400).json({ error: "Faltan campos" });
+  if(!token || !password || typeof token!=='string' || typeof password!=='string'){
+    return res.status(400).json({ error: 'Faltan token o password' });
+  }
+  let userId: string | null = null;
+  let resetRecord: any = null;
+  const now = new Date();
 
-  const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
-  if (!user) return res.status(400).json({ error: "Usuario inválido" });
+  if(email && typeof email === 'string'){
+    const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
+    if(!user) return res.status(400).json({ error: 'Usuario inválido' });
+    const records = await prisma.passwordReset.findMany({ where: { userId: user.id, usedAt: null }, orderBy: { createdAt: 'desc' } });
+    resetRecord = records.find(r => r.expiresAt > now && bcrypt.compareSync(token, r.tokenHash));
+    if(resetRecord) userId = user.id;
+  } else {
+    // Compat: antiguo flujo no enviaba email de vuelta, buscábamos solo por token
+    // Estrategia: escanear un número limitado de registros recientes (ej: 200) para evitar carga excesiva
+    const candidates = await prisma.passwordReset.findMany({ where: { usedAt: null, expiresAt: { gt: now } }, orderBy: { createdAt: 'desc' }, take: 200 });
+    for(const r of candidates){
+      if(bcrypt.compareSync(token, r.tokenHash)){ resetRecord = r; userId = r.userId; break; }
+    }
+  }
 
-  const records = await prisma.passwordReset.findMany({
-    where: { userId: user.id, usedAt: null },
-    orderBy: { createdAt: "desc" }
-  });
-
-  const valid = records.find(r => r.expiresAt > new Date() && bcrypt.compareSync(token, r.tokenHash));
-  if (!valid) return res.status(400).json({ error: "Token inválido o expirado" });
+  if(!resetRecord || !userId) return res.status(400).json({ error: 'Token inválido o expirado' });
+  if(password.length < 8) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
 
   const newHash = await bcrypt.hash(password, 10);
-  await prisma.usuario.update({ where: { id: user.id }, data: { passwordHash: newHash } });
-  await prisma.passwordReset.update({ where: { id: valid.id }, data: { usedAt: new Date() } });
-
+  await prisma.usuario.update({ where: { id: userId }, data: { passwordHash: newHash } });
+  await prisma.passwordReset.update({ where: { id: resetRecord.id }, data: { usedAt: new Date() } });
   res.json({ ok: true });
-});
+}
+
+// POST /api/reset-password (ruta principal)
+router.post("/reset-password", handleReset);
+// Compat: antiguo endpoint /api/auth/reset
+router.post("/auth/reset", handleReset);
 
 export default router;
