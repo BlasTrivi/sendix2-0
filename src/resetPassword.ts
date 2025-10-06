@@ -11,10 +11,15 @@ const prisma = new PrismaClient();
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.SMTP_FROM, // ej: blastrivi@gmail.com
-    pass: process.env.SMTP_PASS  // clave de app de Gmail
+    user: process.env.SMTP_FROM,
+    pass: process.env.SMTP_PASS
   }
 });
+
+// Log de configuración SMTP
+if (!process.env.SMTP_FROM || !process.env.SMTP_PASS) {
+  console.warn("⚠️ SMTP no configurado. El envío de correos fallará.");
+}
 
 function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
@@ -26,11 +31,11 @@ router.post("/forgot-password", async (req, res) => {
   if (!email) return res.status(400).json({ error: "Falta el email" });
 
   const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
-  if (!user) return res.status(200).json({ ok: true }); // no revela si existe
+  if (!user) return res.status(200).json({ ok: true });
 
   const token = generateToken();
   const hash = await bcrypt.hash(token, 10);
-  const expires = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
+  const expires = new Date(Date.now() + 1000 * 60 * 60);
 
   await prisma.passwordReset.create({
     data: {
@@ -41,14 +46,25 @@ router.post("/forgot-password", async (req, res) => {
   });
 
   const resetLink = `https://sendix-web.onrender.com/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
-  await transporter.sendMail({
-    to: email,
-    subject: "Recuperación de contraseña - SENDIX",
-    html: `<p>Hola ${user.name || ""},</p>
-           <p>Para restablecer tu contraseña, hacé clic en el siguiente enlace:</p>
-           <p><a href="${resetLink}">${resetLink}</a></p>
-           <p>Este enlace es válido por 1 hora.</p>`
-  });
+
+  console.log("📤 Enviando mail a:", email);
+  console.log("SMTP_FROM:", process.env.SMTP_FROM);
+  console.log("SMTP_PASS:", process.env.SMTP_PASS ? "OK" : "FALTA");
+  console.log("Reset link:", resetLink);
+
+  try {
+    await transporter.sendMail({
+      to: email,
+      subject: "Recuperación de contraseña - SENDIX",
+      html: `<p>Hola ${user.name || ""},</p>
+             <p>Para restablecer tu contraseña, hacé clic en el siguiente enlace:</p>
+             <p><a href="${resetLink}">${resetLink}</a></p>
+             <p>Este enlace es válido por 1 hora.</p>`
+    });
+  } catch (err) {
+    console.error("❌ Error al enviar el email:", err);
+    return res.status(500).json({ error: "No se pudo enviar el mail de recuperación." });
+  }
 
   res.json({ ok: true });
 });
