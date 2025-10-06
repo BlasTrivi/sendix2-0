@@ -8,17 +8,32 @@ import nodemailer from "nodemailer";
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// --- Configuración SMTP ---
+// Recomendado: definir SMTP_USER (la cuenta real) y SMTP_PASS (App Password si es Gmail 2FA) y SMTP_FROM (cabecera From legible)
+// Fallback: si no hay SMTP_USER, usamos SMTP_FROM como usuario.
+const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_FROM;
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_FROM,
-    pass: process.env.SMTP_PASS
-  }
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: Number(process.env.SMTP_PORT||587) === 465, // true para 465, false para 587
+  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+  logger: true,
+  debug: true
 });
 
 // Log de configuración SMTP
-if (!process.env.SMTP_FROM || !process.env.SMTP_PASS) {
-  console.warn("⚠️ SMTP no configurado. El envío de correos fallará.");
+if (!SMTP_USER || !SMTP_PASS) {
+  console.warn("⚠️ SMTP incompleto: faltan SMTP_USER/SMTP_FROM o SMTP_PASS. No se enviarán correos.");
+} else {
+  // Verificación asíncrona inicial (no bloqueante para la API, pero loggea resultado)
+  transporter.verify().then(()=>{
+    console.log('✅ SMTP verificado (resetPassword router) como', SMTP_USER);
+  }).catch(err=>{
+    console.error('✖ Falló verificación SMTP:', err?.message || err);
+  });
 }
 
 function generateToken(): string {
@@ -53,22 +68,31 @@ router.post("/forgot-password", async (req, res) => {
 
   const resetLink = `https://sendix-web.onrender.com/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
-  console.log("📤 Enviando mail a:", email);
-  console.log("SMTP_FROM:", process.env.SMTP_FROM);
-  console.log("SMTP_PASS:", process.env.SMTP_PASS ? "OK" : "FALTA");
-  console.log("Reset link:", resetLink);
+  console.log('📤 Preparando envío reset');
+  console.log('   To:', email);
+  console.log('   From header:', SMTP_FROM);
+  console.log('   SMTP user usado:', SMTP_USER);
+  console.log('   Reset link:', resetLink);
+  if(!SMTP_USER || !SMTP_PASS){
+    console.warn('   ⚠️ SMTP incompleto: se simula éxito sin enviar.');
+    return res.json({ ok: true, simulated: true });
+  }
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
+      from: SMTP_FROM,
       to: email,
       subject: "Recuperación de contraseña - SENDIX",
-      html: `<p>Hola ${user.name || ""},</p>
+      html: `<p>Hola ${user.name || ''},</p>
              <p>Para restablecer tu contraseña, hacé clic en el siguiente enlace:</p>
              <p><a href="${resetLink}">${resetLink}</a></p>
              <p>Este enlace es válido por 1 hora.</p>`
     });
+    console.log('✅ Email enviado. MessageID:', info.messageId, '| response:', info.response);
   } catch (err) {
-    console.error("❌ Error al enviar el email:", err);
+    console.error("❌ Error al enviar el email:", (err as any)?.message || err);
+    if((err as any)?.response){ console.error('   ↳ SMTP response:', (err as any).response); }
+    if((err as any)?.code){ console.error('   ↳ Code:', (err as any).code); }
     return res.status(500).json({ error: "No se pudo enviar el mail de recuperación." });
   }
 
