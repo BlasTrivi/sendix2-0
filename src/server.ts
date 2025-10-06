@@ -12,10 +12,15 @@ import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 import http from 'node:http';
 import { Server as SocketIOServer } from 'socket.io';
+import resetPasswordRoutes from "./resetPassword.js";
+
+
+
 
 const app = express();
 const prisma = new PrismaClient();
 
+app.use("/api", resetPasswordRoutes);
 // Middlewares
 // Confiar en el proxy (Heroku/Render/Vercel/Nginx) para que req.protocol refleje HTTPS
 // y las cookies 'secure' funcionen correctamente detrás de un proxy TLS
