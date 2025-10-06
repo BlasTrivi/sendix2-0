@@ -23,6 +23,9 @@ model Usuario {
   taxId        String?
   perfilJson   Json?
   createdAt    DateTime @default(now())
+  emailVerifiedAt DateTime?
+  failedLoginAttempts Int @default(0)
+  lockedUntil DateTime?
 
   loads            Load[]     @relation("UsuarioLoads")
   proposals        Proposal[] @relation("UsuarioProposals")
@@ -30,6 +33,8 @@ model Usuario {
   reads            Read[]
   threadsAsCarrier Thread[]   @relation("CarrierThreads")
   passwordResets   PasswordReset[]
+  emailVerifications EmailVerification[]
+  sessions         Session[]
 }
 
 model Load {
@@ -133,6 +138,33 @@ model PasswordReset {
   createdAt  DateTime @default(now())
 
   @@index([userId])
+}
+
+model EmailVerification {
+  id         String   @id @default(cuid())
+  userId     String
+  user       Usuario  @relation(fields: [userId], references: [id])
+  tokenHash  String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  user             Usuario  @relation(fields: [userId], references: [id])
+  refreshTokenHash String
+  userAgent        String?
+  ip               String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 /**
