@@ -270,62 +270,7 @@ app.patch('/api/profile', async (req, res)=>{
   }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
 });
 
-// Recuperación de contraseña
-const ForgotSchema = z.object({ email: z.string().email() });
-app.post('/api/auth/forgot', async (req, res)=>{
-  try{
-    const { email } = ForgotSchema.parse(req.body);
-    const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
-    if(!user){ return res.json({ ok: true }); }
-    // Invalida tokens anteriores
-    await prisma.passwordReset.updateMany({ where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } }, data: { usedAt: new Date() } });
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(Date.now() + 60*60*1000);
-  // TS puede no ver el delegado si el cliente no se regeneró aún; usar any para evitar error de tipo
-    await prisma.passwordReset.create({ data: { userId: user.id, tokenHash, expiresAt } });
-    const base = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const resetUrl = `${base}/reset-password?token=${token}`;
-
-    // Envío de email
-    try{
-      const smtpHost = process.env.SMTP_HOST;
-      const smtpPort = Number(process.env.SMTP_PORT||'0') || 587;
-      const smtpUser = process.env.SMTP_USER;
-      const smtpPass = process.env.SMTP_PASS;
-      if(smtpHost && smtpUser && smtpPass){
-        const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort===465, auth: { user: smtpUser, pass: smtpPass } });
-        await transporter.sendMail({ from: process.env.SMTP_FROM || 'no-reply@sendix', to: user.email, subject: 'Recuperar contraseña', text: `Para restablecer tu contraseña, visitá: ${resetUrl}`, html: `<p>Para restablecer tu contraseña, hacé clic: <a href="${resetUrl}">Restablecer</a></p>` });
-      } else {
-        console.log('⚠️ SMTP no configurado. Link de reset:', resetUrl);
-      }
-    }catch(err){ console.error('Error enviando email de reset', err); }
-    res.json({ ok: true });
-  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
-});
-
-const ResetSchema = z.object({ token: z.string().min(10), password: z.string().min(6) });
-app.post('/api/auth/reset', async (req, res)=>{
-  try{
-    const { token, password } = ResetSchema.parse(req.body);
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const now = new Date();
-    const rec = await prisma.passwordReset.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: now } }, include: { user: true } });
-    if(!rec) return res.status(400).json({ error: 'Token inválido o expirado' });
-    // Reforzar política aquí también
-    if(password.length < 8) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
-    const hash = await bcrypt.hash(password, 10);
-    await prisma.$transaction([
-      prisma.usuario.update({ where: { id: rec.userId }, data: { passwordHash: hash } }),
-      prisma.passwordReset.update({ where: { id: rec.id }, data: { usedAt: now } })
-    ]);
-    // Auto-login tras reset: emitir cookie
-    const u = rec.user;
-    const tokenJwt = signToken({ id: u.id, email: u.email, name: u.name, role: u.role as any });
-    res.cookie('token', tokenJwt, getCookieOpts());
-    res.json({ ok: true, user: { id: u.id, email: u.email, name: u.name, role: u.role, phone: u.phone, taxId: u.taxId, perfil: u.perfilJson } });
-  }catch(err:any){ res.status(400).json({ error: err?.message || String(err) }); }
-});
+// Endpoints legacy de recuperación de contraseña eliminados.
 // Health: siempre 200. Indica dbOk para readiness real
 app.get('/health', async (_req, res) => {
   try {
