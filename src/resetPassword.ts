@@ -27,8 +27,14 @@ function generateToken(): string {
 
 // POST /api/forgot-password
 router.post("/forgot-password", async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Falta el email" });
+  if(!req.is('application/json')){
+    return res.status(415).json({ error: 'Content-Type debe ser application/json' });
+  }
+  if(!req.body || typeof req.body !== 'object'){
+    return res.status(400).json({ error: 'Body JSON requerido' });
+  }
+  const { email } = req.body as any;
+  if (!email || typeof email !== 'string') return res.status(400).json({ error: "Falta el email" });
 
   const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
   if (!user) return res.status(200).json({ ok: true });
@@ -71,8 +77,14 @@ router.post("/forgot-password", async (req, res) => {
 
 // POST /api/reset-password
 router.post("/reset-password", async (req, res) => {
-  const { email, token, password } = req.body;
-  if (!email || !token || !password) return res.status(400).json({ error: "Faltan campos" });
+  if(!req.is('application/json')){
+    return res.status(415).json({ error: 'Content-Type debe ser application/json' });
+  }
+  if(!req.body || typeof req.body !== 'object'){
+    return res.status(400).json({ error: 'Body JSON requerido' });
+  }
+  const { email, token, password } = req.body as any;
+  if (!email || !token || !password || typeof email!=='string' || typeof token!=='string' || typeof password!=='string') return res.status(400).json({ error: "Faltan campos" });
 
   const user = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
   if (!user) return res.status(400).json({ error: "Usuario inválido" });

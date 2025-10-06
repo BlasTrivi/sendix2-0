@@ -19,8 +19,6 @@ import resetPasswordRoutes from "./resetPassword.js";
 
 const app = express();
 const prisma = new PrismaClient();
-
-app.use("/api", resetPasswordRoutes);
 // Middlewares
 // Confiar en el proxy (Heroku/Render/Vercel/Nginx) para que req.protocol refleje HTTPS
 // y las cookies 'secure' funcionen correctamente detrás de un proxy TLS
@@ -29,6 +27,9 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '6mb' }));
 app.use(express.urlencoded({ extended: true, limit: '6mb' }));
 app.use(cookieParser());
+
+// Montar rutas de recuperación de contraseña DESPUÉS de los parsers para asegurar req.body
+app.use("/api", resetPasswordRoutes);
 
 // CORS configurable por variable de entorno (lista separada por comas)
 const rawOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
