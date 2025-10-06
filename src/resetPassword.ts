@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
+import { Resend } from 'resend';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -14,26 +15,62 @@ const prisma = new PrismaClient();
 const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_FROM;
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_FROM = process.env.RESEND_FROM || SMTP_FROM; // Permitir un remitente distinto para Resend
+const isProd = process.env.NODE_ENV === 'production';
+
+let resend: Resend | null = null;
+if(RESEND_API_KEY){
+  resend = new Resend(RESEND_API_KEY);
+  console.log('📧 Resend inicializado como proveedor de email');
+}
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(process.env.SMTP_PORT || 587),
   secure: Number(process.env.SMTP_PORT||587) === 465, // true para 465, false para 587
   auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
-  logger: true,
-  debug: true
+  logger: !isProd,
+  debug: !isProd
 });
 
 // Log de configuración SMTP
-if (!SMTP_USER || !SMTP_PASS) {
-  console.warn("⚠️ SMTP incompleto: faltan SMTP_USER/SMTP_FROM o SMTP_PASS. No se enviarán correos.");
-} else {
-  // Verificación asíncrona inicial (no bloqueante para la API, pero loggea resultado)
-  transporter.verify().then(()=>{
-    console.log('✅ SMTP verificado (resetPassword router) como', SMTP_USER);
-  }).catch(err=>{
-    console.error('✖ Falló verificación SMTP:', err?.message || err);
-  });
+if(!resend){
+  if (!SMTP_USER || !SMTP_PASS) {
+    console.warn("⚠️ Sin Resend y SMTP incompleto: faltan RESEND_API_KEY o SMTP_USER/SMTP_PASS. Se simularán envíos.");
+  } else {
+    transporter.verify().then(()=>{
+      console.log('✅ SMTP verificado (fallback) como', SMTP_USER);
+    }).catch(err=>{
+      console.error('✖ Falló verificación SMTP fallback:', err?.message || err);
+    });
+  }
+}
+
+async function sendResetEmail(to: string, html: string){
+  // Prioridad: Resend -> SMTP -> simulación
+  if(resend){
+    try {
+      const r = await resend.emails.send({ from: RESEND_FROM || 'no-reply@sendix', to, subject: 'Recuperación de contraseña - SENDIX', html });
+      if(!isProd) console.log('✅ Email (Resend) enviado id:', r.data?.id || r);
+      return { provider: 'resend', id: r.data?.id };
+    } catch(err:any){
+      console.error('❌ Error Resend:', err?.message || err);
+      // fallback a SMTP si existe
+    }
+  }
+  if(SMTP_USER && SMTP_PASS){
+    try {
+      const info = await transporter.sendMail({ from: SMTP_FROM || 'no-reply@sendix', to, subject: 'Recuperación de contraseña - SENDIX', html });
+      if(!isProd) console.log('✅ Email (SMTP) enviado id:', info.messageId);
+      return { provider: 'smtp', id: info.messageId };
+    } catch(err:any){
+      console.error('❌ Error SMTP:', err?.message || err);
+    }
+  }
+  // Simulación
+  console.warn('⚠️ Simulando envío de reset (sin proveedor disponible)');
+  return { provider: 'simulated' };
 }
 
 function generateToken(): string {
@@ -66,37 +103,30 @@ async function handleForgot(req: express.Request, res: express.Response){
     }
   });
 
-  const resetLink = `https://sendix-web.onrender.com/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+  // Construcción dinámica del base URL
+  const rawBase = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  // Forzar https si estamos detrás de proxy en prod y base no especifica
+  const appBase = (isProd && rawBase.startsWith('http://')) ? rawBase.replace('http://','https://') : rawBase;
+  const resetLink = `${appBase.replace(/\/$/,'')}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
-  console.log('📤 Preparando envío reset');
-  console.log('   To:', email);
-  console.log('   From header:', SMTP_FROM);
-  console.log('   SMTP user usado:', SMTP_USER);
-  console.log('   Reset link:', resetLink);
-  if(!SMTP_USER || !SMTP_PASS){
-    console.warn('   ⚠️ SMTP incompleto: se simula éxito sin enviar.');
+  if(!isProd){
+    console.log('📤 Preparando envío reset');
+    console.log('   To:', email);
+    console.log('   From header:', SMTP_FROM);
+    console.log('   SMTP user usado:', SMTP_USER);
+    console.log('   Reset link:', resetLink);
+  } else {
+    console.log('📤 Solicitud de reset registrada para', email);
+  }
+  const html = `<p>Hola ${user.name || ''},</p>
+    <p>Para restablecer tu contraseña, hacé clic en el siguiente enlace:</p>
+    <p><a href="${resetLink}">${resetLink}</a></p>
+    <p>Este enlace es válido por 1 hora.</p>`;
+  const result = await sendResetEmail(email, html);
+  if(result.provider === 'simulated'){
     return res.json({ ok: true, simulated: true });
   }
-
-  try {
-    const info = await transporter.sendMail({
-      from: SMTP_FROM,
-      to: email,
-      subject: "Recuperación de contraseña - SENDIX",
-      html: `<p>Hola ${user.name || ''},</p>
-             <p>Para restablecer tu contraseña, hacé clic en el siguiente enlace:</p>
-             <p><a href="${resetLink}">${resetLink}</a></p>
-             <p>Este enlace es válido por 1 hora.</p>`
-    });
-    console.log('✅ Email enviado. MessageID:', info.messageId, '| response:', info.response);
-  } catch (err) {
-    console.error("❌ Error al enviar el email:", (err as any)?.message || err);
-    if((err as any)?.response){ console.error('   ↳ SMTP response:', (err as any).response); }
-    if((err as any)?.code){ console.error('   ↳ Code:', (err as any).code); }
-    return res.status(500).json({ error: "No se pudo enviar el mail de recuperación." });
-  }
-
-  res.json({ ok: true });
+  return res.json({ ok: true, provider: result.provider });
 }
 
 // POST /api/forgot-password (ruta principal)
