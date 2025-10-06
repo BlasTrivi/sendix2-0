@@ -43,6 +43,13 @@ app.use((req, res, next)=>{
   next();
 });
 
+
+
+app.get("/reset-password", (_req, res) => {
+  res.sendFile(path.join(rootDir, "reset-password.html"));
+});
+
+
 // ---- API ----
 // ---- Auth (opcional) ----
 type JwtUser = { id: string; email: string; name: string; role: 'empresa'|'transportista'|'sendix' };
