@@ -109,14 +109,15 @@ async function handleForgot(req: express.Request, res: express.Response){
   const appBase = (isProd && rawBase.startsWith('http://')) ? rawBase.replace('http://','https://') : rawBase;
   const resetLink = `${appBase.replace(/\/$/,'')}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
+  const safeEmail = email.replace(/(.{2}).+(@.*)/,'$1***$2');
   if(!isProd){
     console.log('📤 Preparando envío reset');
-    console.log('   To:', email);
+    console.log('   To(ofuscado):', safeEmail);
     console.log('   From header:', SMTP_FROM);
     console.log('   SMTP user usado:', SMTP_USER);
     console.log('   Reset link:', resetLink);
   } else {
-    console.log('📤 Solicitud de reset registrada para', email);
+    console.log('📤 Solicitud de reset registrada para', safeEmail);
   }
   const html = `<p>Hola ${user.name || ''},</p>
     <p>Para restablecer tu contraseña, hacé clic en el siguiente enlace:</p>
@@ -166,6 +167,9 @@ async function handleReset(req: express.Request, res: express.Response){
   }
 
   if(!resetRecord || !userId) return res.status(400).json({ error: 'Token inválido o expirado' });
+  if(resetRecord.usedAt){
+    return res.status(400).json({ error: 'El enlace ya fue usado. Solicitá uno nuevo.' });
+  }
   if(password.length < 8) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
 
   const newHash = await bcrypt.hash(password, 10);
