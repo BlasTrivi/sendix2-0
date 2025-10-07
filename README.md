@@ -1,152 +1,292 @@
 # SENDIX
 
-Aplicación SPA (sin framework) que conecta empresas y transportistas con un nexo (SENDIX). Incluye publicación/selección de cargas, chat integrado estilo WhatsApp Web y un tracking visual simulado con SVG.
+Plataforma logística full‑stack que conecta Empresas y Transportistas con un rol moderador (SENDIX). Incluye:
 
-## Características principales
-
-- Sin dependencias: HTML + CSS + JavaScript puro en una sola página (hash routing).
-- Roles y flujos:
-	- Empresa: publica cargas, elige propuestas filtradas, chatea y ve estado del envío.
-	- Transportista: ve ofertas, se postula, gestiona estado del envío, chatea.
-	- SENDIX (nexo): modera propuestas y puede participar del chat.
-- Chat moderno por hilo (empresa ⇄ transportista + nexo):
-	- Lista de hilos ordenada por última actividad.
-	- Vista tipo WhatsApp Web: primero solo lista, al abrir se ve solo el chat, botón “← Chats” para volver.
-	- Header e input sticky, scroll interno con “fades” y barras de scroll ocultas.
-	- Enter para enviar, Shift+Enter para salto de línea.
-	- Adjuntos (imágenes) con previsualización.
-	- Responder a mensajes (swipe-to-reply en móvil y menú contextual en desktop).
-	- Indicador de escritura simulado.
-	- Badges de no leídos por hilo y en navegación.
-- Tracking visual con SVG: camión animado en onda senoidal entre hitos (pendiente → en-carga → en-camino → entregado).
-- Estado persistente en LocalStorage.
-- Barra inferior dinámica por rol; el layout evita solapes con contenido en todas las vistas.
-
-## Estructura del proyecto
-
-- `index.html`: Shell de la SPA, vistas y navegación inferior.
-- `styles.css`: Tokens, layout, componentes (cards, listas, chat, tracking), y responsivo.
-- `app.js`: Routing por hash, estado en LocalStorage, render de vistas y lógica de negocio (publicar, moderación, chat, tracking).
-- `assets/`: Recursos estáticos (logo, SVG placeholder).
-
-## Cómo ejecutar
-
-Opción 1 (rápida): abrir `index.html` en tu navegador.
-
-Opción 2 (servidor local):
-
-```bash
-# Python 3
-python -m http.server 8080
-# Luego abrir http://localhost:8080/ en el navegador
-```
-
-No se requiere build ni instalación de paquetes.
-
-## Despliegue público
-
-Opción A — Un solo servidor (frontend+API):
-
-- Requisitos: Postgres accesible (DATABASE_URL), Node 18+.
-- En un VPS o en Render/Railway:
-	- Variables de entorno: `DATABASE_URL`, `PORT=4000`, `CORS_ORIGIN`.
-	- Build: `npm run build`. Start: `npm start`.
-	- Docker: usar `Dockerfile` incluido. Exponer puerto 4000.
-
-Opción B — Frontend (Netlify/Vercel) + Backend (Railway/Render):
-
-- Backend: desplegar este repo como servicio (usa `npm run build` y `npm start`).
-- Frontend: servir archivos estáticos (`index.html`, `styles.css`, `app.js`, `assets`).
-- Configurá en el HTML del front una variable global con la URL pública de la API si es distinto dominio:
-		`<script>window.SENDIX_API_BASE = 'https://TU_API_PUBLICA';</script>`
-- Variables recomendadas en backend (entorno producción):
-	- `CORS_ORIGIN=https://TU_FRONTEND` (una o varias, separadas por coma)
-	- `COOKIE_SAMESITE=none` (para que el navegador envíe cookies cross-site). En el código ya se fuerza por defecto a `none` si hay `CORS_ORIGIN` definido.
-	- `NODE_ENV=production` (activa cookies `secure` automáticamente cuando SameSite es `none`).
-	- `APP_BASE_URL=https://TU_FRONTEND` (para generar links correctos de reset de password).
-	- `SENDIX_ADMIN_EMAIL` y `SENDIX_ADMIN_PASSWORD` para bootstrap de admin.
-	- SMTP (`SMTP_HOST`,`SMTP_PORT`,`SMTP_USER`,`SMTP_PASS`,`SMTP_FROM`) para recuperar contraseña.
-  
-Si usás un subdominio distinto para API y front, asegurate de:
-	- Servir por HTTPS en ambos.
-	- CORS habilitado con `credentials: true` (ya está) y `CORS_ORIGIN` apuntando al front.
-	- Cookies con SameSite=None y Secure (ya gestionado automáticamente por el servidor).
-
-## Rutas y vistas
-
-- Login: selección de rol y nombre.
-- Home: accesos directos con badges por rol.
-- Empresa:
-	- Publicar: formulario con vista previa en vivo.
-	- Mis cargas y propuestas:
-		- Si no hay propuesta aprobada: lista “Propuestas filtradas por SENDIX”.
-		- Si hay propuesta aprobada y el envío está en curso: bloque “Envío seleccionado” con estado, Chat y Ver envío; se ocultan las propuestas.
-		- Si el envío fue entregado: se muestra solo el estado “entregado” y detalles; sin Chat ni Ver envío y sin propuestas.
-- Transportista:
-	- Ofertas disponibles: listar y postularse.
-	- Mis postulaciones: histórico y acceso a Chat cuando esté aprobada.
-	- Mis envíos: actualizar estado del envío (cada envío aprobado).
-- SENDIX (nexo):
-	- Moderación: filtrar propuestas (pendiente ⇄ filtrada) o rechazar.
-- Conversaciones: chat por hilo (loadId + carrier), ordenado por última actividad.
-- Tracking: lista de envíos aprobados con estado actual y visualización SVG animada.
-
-## Comportamiento del chat (resumen)
-
-- Lista → Chat → Volver a lista (en todas las resoluciones).
-- Scroll interno con barras ocultas y “fades” arriba/abajo.
-- Adjuntos con previsualización, responder mensajes, menú contextual y swipe-to-reply en móvil.
-- Indicador de escritura y badges de no leídos.
-- Atajo: Ctrl/Cmd + K para enfocar búsqueda de chats.
-
-## Estado y persistencia
-
-El estado se guarda en LocalStorage con estas claves:
-
-- `sendix.user` (usuario/rol actual)
-- `sendix.loads` (cargas publicadas)
-- `sendix.proposals` (propuestas: pending/filtered/approved/rejected y shipStatus)
-- `sendix.messages` (mensajes por hilo)
-- `sendix.reads` (última lectura por usuario + hilo)
-- `sendix.step` (paso global de tracking, usado como fallback)
-
-Para “resetear” el demo podés limpiar localStorage desde DevTools:
-
-```js
-localStorage.removeItem('sendix.user');
-localStorage.removeItem('sendix.loads');
-localStorage.removeItem('sendix.proposals');
-localStorage.removeItem('sendix.messages');
-localStorage.removeItem('sendix.reads');
-localStorage.removeItem('sendix.step');
-```
-
-## Parámetros visuales útiles
-
-- Altura del recuadro de chat: `--chat-h` (en `:root`, usa `clamp()` para adaptarse por dispositivo).
-- Altura de la barra inferior: `--bbar-h` (se calcula dinámicamente desde JS y evita solapes).
-- Safe areas iOS: `--safe-top`, `--safe-bottom`.
-
-## Notas de desarrollo
-
-- No hay librerías, por lo que todo es editable sin tooling extra.
-- Se cuidó evitar listeners duplicados usando handlers `on*` en renders que se repiten.
-- Se optimizó el orden por última actividad de los hilos precomputando el último mensaje por hilo.
-- El tracking usa SVG y `requestAnimationFrame()` con animación senoidal; respeta `prefers-reduced-motion`.
-
-## Limitaciones y siguientes pasos (ideas)
-
-- Subida real de archivos aún no implementada (solo previsualización con `URL.createObjectURL`).
-- Falta rate limiting (login / forgot password) y protección CSRF si se expone en múltiples dominios.
-- No hay tests automatizados (unit / integración) ni linting configurado.
-- Mejoras opcionales:
-	- Badge “Nuevo mensaje” cuando no estás scrolleado al final del chat.
-	- Filtros en “Mis cargas” (p.ej. ocultar entregados) y búsqueda.
-	- Exportar/Importar estado demo (JSON) para compartir escenarios.
-	- Modularizar `server.ts` (>1000 líneas) y `app.js` (>2500 líneas) en capas (routes / services / lib / sockets).
-	- Añadir `helmet`, rate limiting y logging estructurado.
-	- Sustituir `prisma db push` por migraciones (`prisma migrate deploy`).
+* Publicación y postulación de cargas
+* Moderación / filtrado de propuestas
+* Selección de propuesta ganadora y cálculo de comisión
+* Chat en tiempo real por propuesta aprobada (WhatsApp‑like) con Socket.IO
+* Tracking de envío (pendiente → en_carga → en_camino → entregado) con visual animada SVG
+* Autenticación por roles con JWT en cookie httpOnly
+* Recuperación de contraseña con enlaces de un solo uso (Resend / SMTP / simulación)
+* Perfil extendido para transportistas (tipos de carga, vehículos, seguros, alcance, etc.)
 
 ---
 
-Hecho con cariño, simpleza y foco en UX rápida para el caso de uso de SENDIX.
+## 🔍 Resumen tecnológico
+
+| Capa | Tecnología |
+|------|------------|
+| Backend API | Node.js + Express (TypeScript) |
+| Persistencia | PostgreSQL + Prisma Client |
+| Tiempo real | Socket.IO (rooms por propuesta) |
+| Autenticación | JWT (Firmado, cookie httpOnly SameSite configurable) |
+| Frontend | SPA sin framework (HTML + CSS + JS puro, hash routing) |
+| Emails | Resend (prioridad) + Nodemailer (SMTP fallback) |
+| Contenedores | Docker / docker-compose |
+
+---
+
+## 📂 Estructura principal
+
+```
+├── src/
+│   ├── server.ts              # API principal + rutas HTTP y Socket.IO
+│   └── resetPassword.ts       # Endpoints de recuperación (forgot / reset)
+├── prisma/
+│   └── schema.prisma          # Modelos (Usuario, Load, Proposal, Thread, Message, etc.)
+├── index.html                 # Shell SPA
+├── app.js                     # Lógica de UI (routing, render, llamadas API)
+├── styles.css                 # Estilos y componentes
+├── assets/                    # Recursos estáticos
+├── Dockerfile
+├── docker-compose.yml
+└── tsconfig.json
+```
+
+---
+
+## 🧬 Modelos clave (Prisma)
+
+* Usuario (roles: empresa, transportista, sendix)
+* Load (carga publicada por empresa)
+* Proposal (propuesta del transportista + estado de moderación + shipStatus)
+* Thread (1‑1 con Proposal aprobada; compone el chat)
+* Message (mensajes del chat; soporta replyTo y attachments JSON)
+* Read (última lectura por usuario + hilo)
+* Commission (tasa/importe sobre proposal aprobada)
+* PasswordReset (tokens hash + expiración + single‑use)
+
+---
+
+## 🚀 Puesta en marcha (desarrollo)
+
+1. Clonar repositorio
+2. Crear base de datos Postgres local (o usar docker-compose)
+3. Configurar `.env` mínimo:
+
+```
+DATABASE_URL=postgresql://user:pass@localhost:5432/sendix?schema=public
+JWT_SECRET=dev-secret
+CORS_ORIGIN=http://localhost:4000
+APP_BASE_URL=http://localhost:4000
+```
+
+4. Instalar dependencias
+```
+npm install
+```
+5. Sincronizar schema
+```
+npx prisma db push
+```
+6. Levantar en modo desarrollo (watch TS)
+```
+npm run dev
+```
+7. Visitar: http://localhost:4000
+
+> El frontend se sirve desde el mismo servidor Express (no requiere build separado). 
+
+---
+
+## 🐳 Opción rápida con docker-compose
+
+```
+docker compose up --build
+```
+
+Servicios:
+* db: Postgres 16 (puerto host 5433)
+* app: API + frontend (puerto 4000)
+
+La variable `DATABASE_URL` ya apunta al servicio interno `db`.
+
+---
+
+## 🔐 Autenticación
+
+* Registro: `/api/auth/register` (empresa o transportista) – crea usuario y setea cookie `token`.
+* Login: `/api/auth/login`.
+* Logout: `/api/auth/logout` (borra cookie).
+* `GET /api/me` entrega usuario actual (o `null`).
+* Cookie: httpOnly, SameSite derivado de `COOKIE_SAMESITE` o `none` si hay CORS_ORIGIN.
+* Admin SENDIX opcional se autogenera si se definen `SENDIX_ADMIN_EMAIL` y `SENDIX_ADMIN_PASSWORD`.
+
+### Variables relevantes
+
+| Nombre | Descripción |
+|--------|-------------|
+| DATABASE_URL | Cadena de conexión Postgres |
+| PORT | Puerto HTTP (default 4000) |
+| CORS_ORIGIN | Lista separada por comas de orígenes permitidos |
+| COOKIE_SAMESITE | lax | none | strict (auto none si hay CORS_ORIGIN) |
+| JWT_SECRET / JWT_ACCESS_SECRET | Clave firma JWT |
+| SENDIX_ADMIN_EMAIL / PASSWORD / NAME | Bootstrap usuario rol sendix |
+| APP_BASE_URL | Base absoluta para construir links de reset |
+| SMTP_HOST / SMTP_PORT | Servidor SMTP fallback |
+| SMTP_USER / SMTP_PASS | Credenciales SMTP |
+| SMTP_FROM | Cabecera From legible (si falta se usa SMTP_USER) |
+| RESEND_API_KEY | Para envío prioritario vía Resend |
+| RESEND_FROM | Remitente para Resend (opcional) |
+
+---
+
+## 🔄 Flujo de recuperación de contraseña
+
+1. POST `/api/forgot-password` { email }
+2. Genera token aleatorio (32 bytes), se almacena hash (bcrypt) + expiración 1h
+3. Enlace enviado: `APP_BASE_URL/reset-password?token=...&email=...`
+4. POST `/api/reset-password` { email, token, password }
+5. Marca registro como `usedAt` (single‑use) y actualiza hash de contraseña
+
+Fallbacks:
+* Si no hay Resend, usa SMTP
+* Si tampoco, simula envío (log ofuscado del email)
+
+---
+
+## 💬 Chat en tiempo real
+
+* Un chat por Proposal aprobada (Thread)
+* Room Socket.IO: `proposal:{proposalId}`
+* Eventos server → cliente:
+  * `chat:message` (nuevo mensaje)
+  * `chat:read` (lectura)
+  * `ship:update` (cambio de estado logístico)
+* API REST:
+  * GET `/api/proposals/:id/messages` → `{ disabled, messages[] }` (si la proposal no está aprobada `disabled=true`)
+  * POST `/api/proposals/:id/messages`
+  * POST `/api/proposals/:id/read`
+  * GET `/api/chat/unread` → resumen por proposal
+
+Mensajes incluyen: id, text, createdAt, from { id, name, role }, replyToId, attachments.
+
+---
+
+## 📦 Ciclo de vida de una carga
+
+1. Empresa crea Load (`/api/loads`)
+2. Transportistas envían Proposal (`/api/proposals`)
+3. SENDIX filtra (`/filter`) / rechaza (`/reject`)
+4. Empresa selecciona ganadora (`/select`) → status=approved + se asegura Thread
+5. Transportista / Empresa avanzan `shipStatus` (en_carga → en_camino → entregado)
+6. Cada cambio relevante dispara un mensaje automático y evento tiempo real
+7. Commission se genera al aprobar (rate fija 10% en código)
+
+---
+
+## 🧪 Endpoints principales (resumen mínimo)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | /api/auth/register | Registro usuario |
+| POST | /api/auth/login | Login |
+| GET  | /api/me | Usuario actual |
+| POST | /api/loads | Crear carga (empresa) |
+| GET  | /api/loads | Listar cargas |
+| POST | /api/proposals | Crear propuesta (transportista) |
+| GET  | /api/proposals | Listar propuestas (filtros) |
+| POST | /api/proposals/:id/select | Aprobar (empresa) |
+| POST | /api/proposals/:id/filter | Marcar filtered (sendix) |
+| POST | /api/proposals/:id/reject | Rechazar |
+| PATCH| /api/proposals/:id | Actualizar campos permitidos |
+| GET  | /api/proposals/:id/messages | Mensajes chat |
+| POST | /api/proposals/:id/messages | Enviar mensaje |
+| POST | /api/forgot-password | Solicitar reset |
+| POST | /api/reset-password | Aplicar reset |
+| GET  | /health /healthz | Salud / liveness |
+
+---
+
+## 🛡️ Consideraciones de seguridad actuales
+
+Implementado:
+* JWT en cookie httpOnly (evita lectura por JS)
+* Single‑use tokens para reset de contraseña
+* Hash de contraseñas y tokens (bcrypt)
+* CORS granular (`CORS_ORIGIN` lista)
+* Autorización por rol en rutas críticas
+
+Pendiente / Recomendado:
+* Rate limiting (login / forgot)
+* Bloqueo progresivo por intentos fallidos (parcialmente soportado en modelo, no aplicado en lógica)
+* Cabeceras de seguridad (`helmet`)
+* Sanitización/escapes adjuntos y validaciones extra attachments
+* Migraciones versionadas (`prisma migrate`) en lugar de `db push` en producción
+* Tests unitarios / integración + CI
+
+---
+
+## 🛠️ Scripts NPM
+
+| Script | Acción |
+|--------|-------|
+| dev | `tsx watch src/server.ts` (hot reload) |
+| build | Compila TypeScript a `dist/` |
+| start | Ejecuta build en Node (producción) |
+| start:node | Ejecuta TS directo con tsx (sin build) |
+| prisma:push | Sincroniza schema con la base |
+| prisma:studio | UI de Prisma |
+
+Post‑install genera el Prisma Client automáticamente (ignora error si no hay DB aún).
+
+---
+
+## 📦 Docker (producción)
+
+El `Dockerfile` genera una imagen multi‑stage (build + runtime Alpine):
+
+```
+docker build -t sendix .
+docker run -p 4000:4000 --env-file .env sendix
+```
+
+Requisitos: que `DATABASE_URL` apunte a una base accesible desde el contenedor.
+
+---
+
+## 🎨 Frontend (SPA sin framework)
+
+* Hash routing (`#home`, `#login`, etc.)
+* Estado manejado desde `app.js` llamando a la API (persistencia ya no depende de LocalStorage para datos críticos; se conserva sólo lo mínimo si aplica)
+* Chat con layout responsive: lista → conversación (botón volver) en móviles
+* Tracking animado con SVG + `requestAnimationFrame` (respeta `prefers-reduced-motion`)
+
+---
+
+## ♻️ Flujo de desarrollo sugerido
+
+1. `npm run dev`
+2. Ajustar modelos en `schema.prisma`
+3. `npx prisma db push`
+4. Probar endpoints con herramientas (Insomnia/Postman / fetch en consola)
+5. Refinar UI en `app.js` / `styles.css`
+
+Para producir versión estable: `npm run build && npm start`.
+
+---
+
+## 🧭 Roadmap (ideas futuras)
+
+* Rate limiting + bloqueo adaptativo
+* Verificación de email (modelo existe: `EmailVerification` falta lógica)
+* Sesiones refresh tokens (modelo `Session` ya definido)
+* Subida real de archivos (S3 / almacenamiento externo) en vez de JSON base64
+* Búsqueda / filtros avanzados en hilos de chat
+* Métricas / observabilidad (Prometheus + Grafana)
+* División de `server.ts` en capas (routes / services / repos / sockets)
+* Tests (Vitest / Jest) y pipeline CI/CD
+
+---
+
+## 🤝 Contribuir
+
+1. Crear rama feature/*
+2. Explicar en commit mensajes: tipo(scope): descripción (convención simple)
+3. Mantener cambios de schema acompañados por `prisma migrate` (cuando se adopte)
+
+---
+
+Hecho con foco en simplicidad, trazabilidad y UX rápida para el flujo logístico de SENDIX. ✨
+
