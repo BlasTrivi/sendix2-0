@@ -25,26 +25,33 @@ if(RESEND_API_KEY){
   console.log('📧 Resend inicializado como proveedor de email');
 }
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: Number(process.env.SMTP_PORT||587) === 465, // true para 465, false para 587
-  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
-  logger: !isProd,
-  debug: !isProd
-});
-
-// Log de configuración SMTP
-if(!resend){
-  if (!SMTP_USER || !SMTP_PASS) {
-    console.warn("⚠️ Sin Resend y SMTP incompleto: faltan RESEND_API_KEY o SMTP_USER/SMTP_PASS. Se simularán envíos.");
-  } else {
-    transporter.verify().then(()=>{
-      console.log('✅ SMTP verificado (fallback) como', SMTP_USER);
-    }).catch(err=>{
-      console.error('✖ Falló verificación SMTP fallback:', err?.message || err);
-    });
+// Transporte SMTP perezoso: sólo se crea si no hay Resend y existen credenciales.
+let lazyTransporter: nodemailer.Transporter | null = null;
+function getSmtpTransport(){
+  if(lazyTransporter) return lazyTransporter;
+  if(!SMTP_USER || !SMTP_PASS) return null;
+  lazyTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: Number(process.env.SMTP_PORT||587) === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    logger: !isProd,
+    debug: !isProd
+  });
+  // Verificación diferida (no bloqueante) sólo en dev
+  if(!isProd){
+    lazyTransporter.verify()
+      .then(()=> console.log('✅ SMTP fallback verificado como', SMTP_USER))
+      .catch(err=> console.error('⚠️ SMTP fallback no verificado:', err?.message || err));
   }
+  return lazyTransporter;
+}
+
+// Mensaje de estado inicial
+if(resend){
+  console.log('📧 Usando Resend como proveedor de email (sin intento SMTP inicial).');
+} else if(!SMTP_USER || !SMTP_PASS){
+  console.warn('⚠️ Sin Resend y sin credenciales SMTP completas: los envíos se simularán.');
 }
 
 async function sendResetEmail(to: string, html: string){
@@ -59,9 +66,10 @@ async function sendResetEmail(to: string, html: string){
       // fallback a SMTP si existe
     }
   }
-  if(SMTP_USER && SMTP_PASS){
+  const smtp = getSmtpTransport();
+  if(smtp){
     try {
-      const info = await transporter.sendMail({ from: SMTP_FROM || 'no-reply@sendix', to, subject: 'Recuperación de contraseña - SENDIX', html });
+      const info = await smtp.sendMail({ from: SMTP_FROM || 'no-reply@sendix', to, subject: 'Recuperación de contraseña - SENDIX', html });
       if(!isProd) console.log('✅ Email (SMTP) enviado id:', info.messageId);
       return { provider: 'smtp', id: info.messageId };
     } catch(err:any){
