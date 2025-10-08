@@ -36,3 +36,7 @@ Thumbs.db
 .vscode/
 
 /generated/prisma
+
+# Ignorar restos del antiguo frontend React/Vite
+client/
+react-app.jsx
