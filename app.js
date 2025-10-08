@@ -160,57 +160,6 @@ function upsertUser(u){
   else { state.users.unshift({ ...u, createdAt: u.createdAt || new Date().toISOString() }); }
   save();
 }
-
-    const now = Date.now();
-    function timeAgo(ts){
-      if(!ts) return '';
-      const diff = Math.max(0, now - ts);
-      const sec = Math.floor(diff/1000);
-      if(sec<60) return 'hace '+sec+'s';
-      const min = Math.floor(sec/60);
-      if(min<60) return 'hace '+min+'m';
-      const hr = Math.floor(min/60);
-      if(hr<24) return 'hace '+hr+'h';
-      const d = Math.floor(hr/24);
-      return 'hace '+d+'d';
-    }
-    const items = myThreads.map(p=>{
-      const l = state.loads.find(x=>x.id===p.loadId);
-      const title = `${l?.origen||'?'} → ${l?.destino||'?'}`;
-      const unread = unreadMap[p.id]?.unread || 0;
-      const lastTs = unreadMap[p.id]?.lastMessageAt ? new Date(unreadMap[p.id].lastMessageAt).getTime() : (p.createdAt ? new Date(p.createdAt).getTime() : 0);
-      const subParts = [
-        `Empresa: ${l?.owner||'-'}`,
-        `Transportista: ${p.carrier||'-'}`,
-        `Vehículo: ${p.vehicle||'-'}`,
-        `Precio: ${typeof p.price==='number'? ('$'+p.price.toLocaleString('es-AR')):'-'}`
-      ];
-      const sub = subParts.join(' · ');
-      const match = (title+' '+sub).toLowerCase().includes(q);
-      return { p, l, title, sub, unread, lastTs, match };
-    }).filter(x=>x.match).sort((a,b)=> b.lastTs - a.lastTs);
-
-    ul.innerHTML = items.length ? items.map(({p, l, title, sub, unread, lastTs})=>`
-      <li class="conv-item" data-prop="${p.id}">
-        <div class="row">
-          <strong>${title}</strong>
-          <span class="badge status-${(p.shipStatus||'pendiente').replace(/_/g,'-')}">${p.shipStatus||'pendiente'}</span>
-        </div>
-        <div class="muted">${sub} · Último: ${ lastTs ? timeAgo(lastTs) : '—' }</div>
-        <div class="row">
-          <button class="btn" data-open-chat="${p.id}">Abrir chat ${unread?`<span class='badge-pill'>${unread}</span>`:''}</button>
-          ${unread? `<button class="btn btn-tertiary" data-mark-read="${p.id}">Marcar leído</button>`:''}
-        </div>
-      </li>
-    `).join('') : '<li class="muted" style="padding:12px">Sin conversaciones</li>';
-
-    // Abrir chat
-    ul.querySelectorAll('[data-open-chat]').forEach(btn=>btn.addEventListener('click', ()=>openChatByProposalId(btn.dataset.openChat)));
-    // Marcar leído individual
-    ul.querySelectorAll('[data-mark-read]').forEach(btn=>btn.addEventListener('click', ()=>{
-      const id = btn.dataset.markRead;
-      (async()=>{ try{ await API.markRead(id); }catch{} renderThreads(); })();
-    }));
 function threadIdFor(p){ return `${p.loadId}__${p.carrier}`; }
 
 function computeUnread(threadId){
@@ -1615,26 +1564,56 @@ function renderThreads(){
   (async()=>{
     const { unreadMap, total } = await getUnreadMapForProposals(myThreads);
     updateNavUnreadBadge(total);
+    const now = Date.now();
+    function timeAgo(ts){
+      if(!ts) return '';
+      const diff = Math.max(0, now - ts);
+      const sec = Math.floor(diff/1000);
+      if(sec<60) return 'hace '+sec+'s';
+      const min = Math.floor(sec/60);
+      if(min<60) return 'hace '+min+'m';
+      const hr = Math.floor(min/60);
+      if(hr<24) return 'hace '+hr+'h';
+      const d = Math.floor(hr/24);
+      return 'hace '+d+'d';
+    }
     const items = myThreads.map(p=>{
       const l = state.loads.find(x=>x.id===p.loadId);
-      const title = `${l?.origen} → ${l?.destino}`;
-      const sub = `Emp: ${l?.owner} · Transp: ${p.carrier} · Dim: ${l?.dimensiones||'-'}`;
+      const title = `${l?.origen||'?'} → ${l?.destino||'?'}`;
       const unread = unreadMap[p.id]?.unread || 0;
-      const match = (title+' '+sub).toLowerCase().includes(q);
       const lastTs = unreadMap[p.id]?.lastMessageAt ? new Date(unreadMap[p.id].lastMessageAt).getTime() : (p.createdAt ? new Date(p.createdAt).getTime() : 0);
-      return {p, l, title, sub, unread, match, lastTs};
+      const subParts = [
+        `Empresa: ${l?.owner||'-'}`,
+        `Transportista: ${p.carrier||'-'}`,
+        `Vehículo: ${p.vehicle||'-'}`,
+        `Precio: ${typeof p.price==='number'? ('$'+p.price.toLocaleString('es-AR')):'-'}`
+      ];
+      const sub = subParts.join(' · ');
+      const match = (title+' '+sub).toLowerCase().includes(q);
+      return { p, l, title, sub, unread, lastTs, match };
     }).filter(x=>x.match).sort((a,b)=> b.lastTs - a.lastTs);
-    ul.innerHTML = items.length ? items.map(({p, l, title, sub, unread})=>`
-    <li class="thread-item" data-chat="${p.id}">
-      <div class="avatar">${(l?.owner||'?')[0]||'?'}</div>
-      <div>
-        <div class="thread-title">${title}</div>
-        <div class="thread-sub">${sub} · ${p.shipStatus||'pendiente'}</div>
-      </div>
-      <div class="thread-badge">${unread?`<span class="badge-pill">${unread}</span>`:''}</div>
-    </li>
-  `).join('') : '<li class="muted" style="padding:12px">Sin conversaciones</li>';
-    ul.querySelectorAll('[data-chat]').forEach(li=>li.addEventListener('click', ()=>openChatByProposalId(li.dataset.chat)));
+
+    ul.innerHTML = items.length ? items.map(({p, l, title, sub, unread, lastTs})=>`
+      <li class="conv-item" data-prop="${p.id}">
+        <div class="row">
+          <strong>${title}</strong>
+          <span class="badge status-${(p.shipStatus||'pendiente').replace(/_/g,'-')}">${p.shipStatus||'pendiente'}</span>
+        </div>
+        <div class="muted">${sub} · Último: ${ lastTs ? timeAgo(lastTs) : '—' }</div>
+        <div class="row">
+          <button class="btn" data-open-chat="${p.id}">Abrir chat ${unread?`<span class='badge-pill'>${unread}</span>`:''}</button>
+          ${unread? `<button class="btn btn-tertiary" data-mark-read="${p.id}">Marcar leído</button>`:''}
+        </div>
+      </li>
+    `).join('') : '<li class="muted" style="padding:12px">Sin conversaciones</li>';
+
+    // Abrir chat
+    ul.querySelectorAll('[data-open-chat]').forEach(btn=>btn.addEventListener('click', ()=>openChatByProposalId(btn.dataset.openChat)));
+    // Marcar leído individual
+    ul.querySelectorAll('[data-mark-read]').forEach(btn=>btn.addEventListener('click', ()=>{
+      const id = btn.dataset.markRead;
+      (async()=>{ try{ await API.markRead(id); }catch{} renderThreads(); })();
+    }));
     const searchEl = document.getElementById('chat-search');
     if(searchEl) searchEl.oninput = ()=>renderThreads();
     // Marcar todo como leído (en servidor y local)
