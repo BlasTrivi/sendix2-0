@@ -161,26 +161,56 @@ function upsertUser(u){
   save();
 }
 
-// Actualiza la variable CSS --bbar-h según la barra inferior visible
-function updateBottomBarHeight(){
-  try{
-    const root = document.documentElement;
-    const bar = document.querySelector('.bottombar.visible');
-    let h = 0;
-    if(bar){
-      const rect = bar.getBoundingClientRect();
-      // Usar la altura real de la barra (incluye padding y safe-area)
-      h = Math.max(0, Math.round(rect.height));
+    const now = Date.now();
+    function timeAgo(ts){
+      if(!ts) return '';
+      const diff = Math.max(0, now - ts);
+      const sec = Math.floor(diff/1000);
+      if(sec<60) return 'hace '+sec+'s';
+      const min = Math.floor(sec/60);
+      if(min<60) return 'hace '+min+'m';
+      const hr = Math.floor(min/60);
+      if(hr<24) return 'hace '+hr+'h';
+      const d = Math.floor(hr/24);
+      return 'hace '+d+'d';
     }
-    // Guardrail: valores razonables (0-200px)
-    if(!(h >= 0 && h <= 200)) h = 64;
-    root.style.setProperty('--bbar-h', h + 'px');
-  }catch(e){
-    // Fallback silencioso (no bloquear la app)
-  }
-}
+    const items = myThreads.map(p=>{
+      const l = state.loads.find(x=>x.id===p.loadId);
+      const title = `${l?.origen||'?'} → ${l?.destino||'?'}`;
+      const unread = unreadMap[p.id]?.unread || 0;
+      const lastTs = unreadMap[p.id]?.lastMessageAt ? new Date(unreadMap[p.id].lastMessageAt).getTime() : (p.createdAt ? new Date(p.createdAt).getTime() : 0);
+      const subParts = [
+        `Empresa: ${l?.owner||'-'}`,
+        `Transportista: ${p.carrier||'-'}`,
+        `Vehículo: ${p.vehicle||'-'}`,
+        `Precio: ${typeof p.price==='number'? ('$'+p.price.toLocaleString('es-AR')):'-'}`
+      ];
+      const sub = subParts.join(' · ');
+      const match = (title+' '+sub).toLowerCase().includes(q);
+      return { p, l, title, sub, unread, lastTs, match };
+    }).filter(x=>x.match).sort((a,b)=> b.lastTs - a.lastTs);
 
-function genId(){ return Math.random().toString(36).slice(2,10); }
+    ul.innerHTML = items.length ? items.map(({p, l, title, sub, unread, lastTs})=>`
+      <li class="conv-item" data-prop="${p.id}">
+        <div class="row">
+          <strong>${title}</strong>
+          <span class="badge status-${(p.shipStatus||'pendiente').replace(/_/g,'-')}">${p.shipStatus||'pendiente'}</span>
+        </div>
+        <div class="muted">${sub} · Último: ${ lastTs ? timeAgo(lastTs) : '—' }</div>
+        <div class="row">
+          <button class="btn" data-open-chat="${p.id}">Abrir chat ${unread?`<span class='badge-pill'>${unread}</span>`:''}</button>
+          ${unread? `<button class="btn btn-tertiary" data-mark-read="${p.id}">Marcar leído</button>`:''}
+        </div>
+      </li>
+    `).join('') : '<li class="muted" style="padding:12px">Sin conversaciones</li>';
+
+    // Abrir chat
+    ul.querySelectorAll('[data-open-chat]').forEach(btn=>btn.addEventListener('click', ()=>openChatByProposalId(btn.dataset.openChat)));
+    // Marcar leído individual
+    ul.querySelectorAll('[data-mark-read]').forEach(btn=>btn.addEventListener('click', ()=>{
+      const id = btn.dataset.markRead;
+      (async()=>{ try{ await API.markRead(id); }catch{} renderThreads(); })();
+    }));
 function threadIdFor(p){ return `${p.loadId}__${p.carrier}`; }
 
 function computeUnread(threadId){
