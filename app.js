@@ -1603,8 +1603,10 @@ function renderThreads(){
     }).filter(x=>x.match).sort((a,b)=> b.lastTs - a.lastTs);
 
     if(container){
-      container.innerHTML = items.length ? items.map(({p, l, title, sub, unread, lastTs})=>`
-        <div class="card chat-card" data-open-chat="${p.id}">
+      container.innerHTML = items.length ? items.map(({p, l, title, sub, unread, lastTs})=>{
+        const active = state.activeThread && threadIdFor(p)===state.activeThread;
+        return `
+        <div class="card chat-card ${active?'active':''}" data-open-chat="${p.id}">
           <div class="row" style="justify-content:space-between; align-items:flex-start; gap:8px;">
             <div style="flex:1; min-width:160px">
               <h3 style="margin:0 0 4px">${title}</h3>
@@ -1612,7 +1614,7 @@ function renderThreads(){
               <div class="row" style="gap:6px; flex-wrap:wrap; font-size:12px">
                 <span class="badge status-${(p.shipStatus||'pendiente').replace(/_/g,'-')}">${p.shipStatus||'pendiente'}</span>
                 <span class="muted">Último: ${ lastTs ? timeAgo(lastTs) : '—' }</span>
-                ${unread? `<span class="badge-pill">${unread}</span>`:''}
+                <span class="chat-unread-dot" data-unread-dot="${p.id}" style="${unread?'' :'display:none'}">${unread>99?'99+':unread}</span>
               </div>
             </div>
             <div class="col" style="gap:6px; align-items:flex-end;">
@@ -1621,7 +1623,7 @@ function renderThreads(){
             </div>
           </div>
         </div>
-      `).join('') : '<div class="muted" style="padding:12px">Sin conversaciones</div>';
+      `; }).join('') : '<div class="muted" style="padding:12px">Sin conversaciones</div>';
 
       container.querySelectorAll('[data-open-chat],[data-open-chat-btn]').forEach(el=>el.addEventListener('click', (e)=>{
         e.stopPropagation();
@@ -1630,6 +1632,10 @@ function renderThreads(){
         // Mostrar área de chat (panel) si estaba oculta
         const chatArea = document.getElementById('chat-area');
         if(chatArea) chatArea.style.display='block';
+        // Recalcar tarjeta activa
+        container.querySelectorAll('.chat-card.active').forEach(c=>c.classList.remove('active'));
+        const card = container.querySelector(`.chat-card[data-open-chat="${id}"]`);
+        if(card) card.classList.add('active');
       }));
       container.querySelectorAll('[data-mark-read]').forEach(btn=>btn.addEventListener('click', ()=>{
         const id = btn.getAttribute('data-mark-read');
@@ -1987,14 +1993,25 @@ function formatEstadoCsv(status){
   if(s==='pending') return 'Pendiente';
   return s ? (s[0].toUpperCase()+s.slice(1)) : '';
 }
-S
+// Apertura de chat adaptada a nueva UI (tarjetas)
 // Chat (mediación) — por hilo (loadId + carrier) con SENDIX como 3er participante
 function openChatByProposalId(propId){
   const p = state.proposals.find(x=>x.id===propId);
   state.activeThread = p ? threadIdFor(p) : null;
   state.justOpenedChat = true;
   save();
-  navigate('conversaciones');
+  const currentRoute = (location.hash.replace('#','')||'login');
+  // Si ya estamos en conversaciones, no forzar navigate (evita re-ocultar panel)
+  if(currentRoute!=='conversaciones'){
+    navigate('conversaciones');
+  } else {
+    // Mostrar panel y render
+    const chatArea = document.getElementById('chat-area');
+    if(chatArea) chatArea.style.display='block';
+    renderChat();
+    // Scroll al final tras pequeño delay para asegurar DOM listo
+    setTimeout(()=>{ try{ const box=document.getElementById('chat-box'); if(box) box.scrollTop=box.scrollHeight; }catch{} }, 30);
+  }
   if(state.activeThread) markThreadRead(state.activeThread);
 }
 function renderChat(){
@@ -2014,8 +2031,13 @@ function renderChat(){
     typing.style.display='none'; replyBar.style.display='none'; attachPreviews.style.display='none';
     chatForm.style.display='none';
     if(backBtn) backBtn.style.display='none';
+    // Ocultar panel si no hay hilo activo (mantener tarjetas limpias)
+    const chatArea = document.getElementById('chat-area');
+    if(chatArea) chatArea.style.display='none';
     return;
   }
+  const chatArea = document.getElementById('chat-area');
+  if(chatArea) chatArea.style.display='block';
   if(backBtn) backBtn.style.display='inline-flex';
   chatForm.style.display='flex';
   const p = state.proposals.find(x=>threadIdFor(x)===state.activeThread);
