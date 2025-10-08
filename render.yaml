@@ -1,14 +1,23 @@
 services:
   - type: web
-    name: sendix-web
+    name: sendix-api
     env: node
     plan: free
-    buildCommand: npm ci && npm run build
-  startCommand: npm run prisma:push && npm start
+    # Instalamos también devDependencies para que TypeScript encuentre los @types/* durante el build
+    buildCommand: npm ci --include=dev && npm run build
+    # npm start ejecuta "prestart" (prisma db push) y luego arranca dist/server.js
+    # Si más adelante migrás a migraciones versionadas: reemplazar por "npm run migrate:deploy && node dist/server.js"
+    startCommand: npm start
     autoDeploy: true
     envVars:
       - key: DATABASE_URL
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        value: onboarding@resend.dev
+      - key: NODE_ENV
+        value: production
       - key: PORT
         value: 4000
       - key: CORS_ORIGIN
