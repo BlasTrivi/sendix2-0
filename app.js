@@ -39,6 +39,15 @@ const state = {
   adminUsers: []
 };
 
+// Calcula y fija en CSS variable la altura de la barra inferior (layout móvil)
+function updateBottomBarHeight(){
+  try{
+    const bar = document.querySelector('.bottombar.visible');
+    const h = bar ? bar.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--bottom-bar-height', h+'px');
+  }catch{}
+}
+
 // --- Socket.IO cliente ---
 let socket = null;
 function ensureSocket(){
