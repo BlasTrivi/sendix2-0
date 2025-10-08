@@ -1564,7 +1564,7 @@ function renderInbox(){
 
 // SENDIX/Empresa/Transportista: lista de chats aprobados
 function renderThreads(){
-  const ul = document.getElementById('threads');
+  const container = document.getElementById('threads-cards');
   const q = (document.getElementById('chat-search')?.value||'').toLowerCase();
   // Sincronizar datos base en segundo plano
   (async()=>{ try{ await syncProposalsFromAPI(); await syncLoadsFromAPI(); ensureSocket(); if(socket){ const approved=(state.proposals||[]).filter(p=>p.status==='approved').map(p=>p.id); if(approved.length) socket.emit('chat:joinMany', { proposalIds: approved }); } }catch{} })();
@@ -1602,27 +1602,40 @@ function renderThreads(){
       return { p, l, title, sub, unread, lastTs, match };
     }).filter(x=>x.match).sort((a,b)=> b.lastTs - a.lastTs);
 
-    ul.innerHTML = items.length ? items.map(({p, l, title, sub, unread, lastTs})=>`
-      <li class="conv-item" data-prop="${p.id}">
-        <div class="row">
-          <strong>${title}</strong>
-          <span class="badge status-${(p.shipStatus||'pendiente').replace(/_/g,'-')}">${p.shipStatus||'pendiente'}</span>
+    if(container){
+      container.innerHTML = items.length ? items.map(({p, l, title, sub, unread, lastTs})=>`
+        <div class="card chat-card" data-open-chat="${p.id}">
+          <div class="row" style="justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div style="flex:1; min-width:160px">
+              <h3 style="margin:0 0 4px">${title}</h3>
+              <p class="muted" style="margin:0 0 6px; font-size:13px">${sub}</p>
+              <div class="row" style="gap:6px; flex-wrap:wrap; font-size:12px">
+                <span class="badge status-${(p.shipStatus||'pendiente').replace(/_/g,'-')}">${p.shipStatus||'pendiente'}</span>
+                <span class="muted">Último: ${ lastTs ? timeAgo(lastTs) : '—' }</span>
+                ${unread? `<span class="badge-pill">${unread}</span>`:''}
+              </div>
+            </div>
+            <div class="col" style="gap:6px; align-items:flex-end;">
+              <button class="btn btn-primary" data-open-chat-btn="${p.id}">Abrir</button>
+              ${unread? `<button class="btn btn-tertiary" data-mark-read="${p.id}">Marcar leído</button>`:''}
+            </div>
+          </div>
         </div>
-        <div class="muted">${sub} · Último: ${ lastTs ? timeAgo(lastTs) : '—' }</div>
-        <div class="row">
-          <button class="btn" data-open-chat="${p.id}">Abrir chat ${unread?`<span class='badge-pill'>${unread}</span>`:''}</button>
-          ${unread? `<button class="btn btn-tertiary" data-mark-read="${p.id}">Marcar leído</button>`:''}
-        </div>
-      </li>
-    `).join('') : '<li class="muted" style="padding:12px">Sin conversaciones</li>';
+      `).join('') : '<div class="muted" style="padding:12px">Sin conversaciones</div>';
 
-    // Abrir chat
-    ul.querySelectorAll('[data-open-chat]').forEach(btn=>btn.addEventListener('click', ()=>openChatByProposalId(btn.dataset.openChat)));
-    // Marcar leído individual
-    ul.querySelectorAll('[data-mark-read]').forEach(btn=>btn.addEventListener('click', ()=>{
-      const id = btn.dataset.markRead;
-      (async()=>{ try{ await API.markRead(id); }catch{} renderThreads(); })();
-    }));
+      container.querySelectorAll('[data-open-chat],[data-open-chat-btn]').forEach(el=>el.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const id = el.getAttribute('data-open-chat') || el.getAttribute('data-open-chat-btn');
+        openChatByProposalId(id);
+        // Mostrar área de chat (panel) si estaba oculta
+        const chatArea = document.getElementById('chat-area');
+        if(chatArea) chatArea.style.display='block';
+      }));
+      container.querySelectorAll('[data-mark-read]').forEach(btn=>btn.addEventListener('click', ()=>{
+        const id = btn.getAttribute('data-mark-read');
+        (async()=>{ try{ await API.markRead(id); }catch{} renderThreads(); })();
+      }));
+    }
     const searchEl = document.getElementById('chat-search');
     if(searchEl) searchEl.oninput = ()=>renderThreads();
     // Marcar todo como leído (en servidor y local)

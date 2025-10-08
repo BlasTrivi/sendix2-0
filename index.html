@@ -448,23 +448,21 @@
       </section>
 
       <section data-route="conversaciones" class="view">
-  <div class="chat-wrapper shadow-md">
-          <aside class="chat-sidebar">
-            <div class="chat-sidebar-header">
-              <h2>Chats</h2>
-              <input id="chat-search" placeholder="Buscar…" />
-              <button class="btn" id="mark-all-read">Marcar todo como leído</button>
-            </div>
-            <ul id="threads" class="thread-list"></ul>
-          </aside>
-          <section class="chat-main">
-            <div class="chat-main-header">
-              <div class="chat-main-left">
-                <button class="btn btn-ghost chat-back" id="chat-back" title="Volver a chats" style="display:none">← Chats</button>
-                <h3 id="chat-title">Elegí una conversación</h3>
+        <h2 class="section-title">Conversaciones</h2>
+        <div class="row" style="gap:8px; align-items:center; margin:6px 0 14px">
+          <input id="chat-search" placeholder="Buscar…" style="flex:1" />
+          <button class="btn" id="mark-all-read">Marcar todo como leído</button>
+        </div>
+        <div id="threads-cards" class="cards cards-chats"></div>
+        <div id="chat-area" class="chat-area" style="display:none; margin-top:18px">
+          <div class="chat-panel shadow-md">
+            <div class="chat-main-header" style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+              <div class="chat-main-left" style="flex:1 1 auto; min-width:240px;">
+                <button class="btn btn-ghost chat-back" id="chat-back" title="Volver" style="display:none">← Volver</button>
+                <h3 id="chat-title" style="margin:4px 0 2px">Elegí una conversación</h3>
                 <p class="muted" id="chat-topic"></p>
               </div>
-              <div class="chat-main-actions">
+              <div class="chat-main-actions" style="display:flex; gap:8px; align-items:center;">
                 <button class="btn" id="open-related-tracking">Ver envío</button>
               </div>
             </div>
@@ -478,7 +476,7 @@
             </div>
             <div id="chat-box" class="chat-box big"></div>
             <div id="attach-previews" class="attach-previews" style="display:none"></div>
-            <form id="chat-form" class="chat-input">
+            <form id="chat-form" class="chat-input" style="display:none">
               <input id="file-attach" type="file" accept="image/*" multiple style="display:none" />
               <button class="btn" type="button" id="btn-attach" title="Adjuntar">📎</button>
               <textarea id="chat-textarea" name="message" placeholder="Escribí un mensaje… (Enter para enviar · Shift+Enter salto de línea)" rows="1" required></textarea>
@@ -489,7 +487,7 @@
               <button data-action="copy">Copiar</button>
               <button data-action="delete">Eliminar para mí</button>
             </div>
-          </section>
+          </div>
         </div>
       </section>
 
