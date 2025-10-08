@@ -20,12 +20,6 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.16.2",
-    "@types/cookie-parser": "^1.4.9",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^22.7.9",
-    "@types/nodemailer": "^7.0.2",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -38,6 +32,12 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.7.9",
+    "@types/nodemailer": "^7.0.2",
     "nodemon": "^3.1.10",
     "prisma": "^6.16.2",
     "ts-node": "^10.9.2",
