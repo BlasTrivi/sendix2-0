@@ -2113,17 +2113,33 @@ function renderChat(){
   let tempAttach = [];
   if(btnAttach) btnAttach.onclick = ()=> inputAttach?.click();
   if(inputAttach) inputAttach.onchange = ()=>{
-    const files = Array.from(inputAttach.files||[]);
-    tempAttach = [];
-    attachPreviews.innerHTML = '';
-    files.slice(0,6).forEach(f=>{
-      const url = URL.createObjectURL(f);
-      tempAttach.push(url);
-      const img = document.createElement('img');
-      img.src = url; img.alt='adjunto';
-      attachPreviews.appendChild(img);
+    const files = Array.from(inputAttach.files||[]).slice(0,6);
+    tempAttach = []; attachPreviews.innerHTML='';
+    if(!files.length){ attachPreviews.style.display='none'; return; }
+    // Convertir a dataURL (base64) para persistir en servidor (JSON) – solo imágenes pequeñas
+    const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+    const toDataUrl = (file)=> new Promise((resolve,reject)=>{
+      if(!/^image\//.test(file.type)) return reject(new Error('Solo imágenes'));
+      if(file.size > MAX_SIZE) return reject(new Error('>2MB'));
+      const fr = new FileReader();
+      fr.onerror = ()=>reject(new Error('Error leyendo archivo'));
+      fr.onload = ()=>resolve(fr.result);
+      fr.readAsDataURL(file);
     });
-    attachPreviews.style.display = tempAttach.length? 'flex':'none';
+    (async()=>{
+      for(const f of files){
+        try{
+          const data = await toDataUrl(f);
+          tempAttach.push(data);
+          const img = document.createElement('img');
+          img.src = data; img.alt = f.name; img.title = f.name;
+          attachPreviews.appendChild(img);
+        }catch(err){
+          console.warn('Adjunto descartado', f.name, err?.message||err);
+        }
+      }
+      attachPreviews.style.display = tempAttach.length? 'flex':'none';
+    })();
   };
 
   // Reply a mensaje
