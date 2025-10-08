@@ -150,7 +150,8 @@ body{
 .view.active[data-route="conversaciones"] .chat-wrapper{ flex:1 1 auto; display:grid; grid-template-columns: 1fr; height:auto; max-height:calc(100vh - (var(--bbar-h) + 120px)); margin-bottom: calc(var(--bbar-h) + 12px); overflow:hidden; }
 
 /* En la ruta de conversaciones, no scrollear el contenedor general */
-body.route-conversaciones #view-container{ overflow:hidden; padding-bottom:18px; }
+/* Conversaciones: ahora queremos scroll general igual que otras vistas */
+body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(var(--bbar-h) + 90px); }
 .chat-main{ display:flex; flex-direction:column; }
 .chat-box.big{ flex:1; overflow:auto; overscroll-behavior:contain; }
 
@@ -370,10 +371,14 @@ select option{color:#0E2F44; background:#fff}
    Responsivo
    -------------------- */
 /* Mostrar solo lista o solo chat en conversaciones (todas las resoluciones) */
-body.route-conversaciones .chat-sidebar{ display:block }
-body.route-conversaciones.chat-has-active .chat-sidebar{ display:none }
-body.route-conversaciones .chat-main{ display:none }
-body.route-conversaciones.chat-has-active .chat-main{ display:flex }
+/* Nueva lógica: usamos tarjetas (#threads-cards) y panel (#chat-area).  */
+body.route-conversaciones #threads-cards{ display:grid; }
+body.route-conversaciones.chat-has-active #threads-cards{ display:none; }
+body.route-conversaciones #chat-area{ display:none; }
+body.route-conversaciones.chat-has-active #chat-area{ display:block; }
+/* Ajustes de panel chat en nueva disposición */
+#chat-area .chat-panel{ background: var(--card); border:1px solid var(--border); border-radius: var(--radius-lg); padding:0; }
+#chat-area .chat-main-header{ border-bottom:1px solid var(--border); }
 /* Botón atrás visible cuando hay chat activo */
 .chat-main-left{ display:flex; align-items:flex-start; gap:8px }
 body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !important }
