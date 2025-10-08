@@ -605,14 +605,13 @@ app.patch('/api/proposals/:id', async (req, res) => {
       const status = updateData.shipStatus;
       if(status === 'entregado' || status === 'en_carga' || status === 'en_camino'){
         try {
-          const ensuredTh = await ensureThreadForProposal(id);
-          if(ensuredTh.disabled || !ensuredTh.thread){ throw new Error('Thread no disponible aún'); }
+          const th = await ensureThreadForProposal(id);
           const msgText = status === 'entregado'
             ? '🚚 Entrega confirmada por el transportista.'
             : (status === 'en_carga' ? '📦 Estado actualizado: En carga.' : '🛣️ Estado actualizado: En camino.');
           const created = await prisma.message.create({
             data: {
-              threadId: ensuredTh.thread.id,
+              threadId: th.id,
               fromUserId: req.user?.id || upd.carrierId,
               text: msgText,
               attachments: undefined
@@ -697,21 +696,19 @@ app.post('/api/proposals/:id/select', requireRole('empresa'), async (req, res) =
 
 // ---- API: Chat (Threads/Messages/Reads) ----
 
+
 // Devuelve { thread, disabled } donde disabled=true si la propuesta aún no habilita chat
 async function ensureThreadForProposal(proposalId: string){
   const p = await prisma.proposal.findUnique({ where: { id: proposalId }, include: { load: true, carrier: true, thread: true } });
   if(!p) throw Object.assign(new Error('Proposal not found'), { status: 404 });
-  if(p.status !== 'approved'){
-    return { thread: null, disabled: true, proposal: p } as const;
-  }
-  if(p.thread) return { thread: p.thread, disabled: false, proposal: p } as const;
+  if(p.status !== 'approved') throw Object.assign(new Error('Chat no disponible hasta aprobar la propuesta'), { status: 400 });
+  if(p.thread) return p.thread;
   const existing = await prisma.thread.findFirst({ where: { loadId: p.loadId, carrierId: p.carrierId } });
-  if(existing){
+  if(existing) {
     const up = await prisma.thread.update({ where: { id: existing.id }, data: { proposalId: proposalId } });
-    return { thread: up, disabled: false, proposal: p } as const;
+    return up;
   }
-  const created = await prisma.thread.create({ data: { loadId: p.loadId, carrierId: p.carrierId, proposalId: proposalId } });
-  return { thread: created, disabled: false, proposal: p } as const;
+  return prisma.thread.create({ data: { loadId: p.loadId, carrierId: p.carrierId, proposalId: proposalId } });
 }
 
 function userCanAccessProposal(u: JwtUser | null | undefined, p: { load: { ownerId: string }, carrierId: string }){
@@ -729,26 +726,20 @@ app.get('/api/proposals/:id/messages', async (req, res) => {
     const p = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
     if(!p) return res.status(404).json({ error: 'Not found' });
     if(!userCanAccessProposal(req.user, p)) return res.status(403).json({ error: 'Forbidden' });
-    const ensured = await ensureThreadForProposal(id);
-    if(ensured.disabled){
-      return res.json({ disabled: true, messages: [] });
-    }
+  const th = await ensureThreadForProposal(id);
     const rows = await prisma.message.findMany({
-      where: { threadId: ensured.thread!.id },
+      where: { threadId: th.id },
       orderBy: { createdAt: 'asc' },
       include: { fromUser: { select: { id: true, name: true, role: true } } }
     });
-    res.json({
-      disabled: false,
-      messages: rows.map(m => ({
-        id: m.id,
-        text: m.text,
-        createdAt: m.createdAt,
-        from: { id: m.fromUser.id, name: m.fromUser.name, role: m.fromUser.role },
-        replyToId: m.replyToId,
-        attachments: m.attachments || null
-      }))
-    });
+    res.json(rows.map(m => ({
+      id: m.id,
+      text: m.text,
+      createdAt: m.createdAt,
+      from: { id: m.fromUser.id, name: m.fromUser.name, role: m.fromUser.role },
+      replyToId: m.replyToId,
+      attachments: m.attachments || null
+    })));
   }catch(err:any){
     const status = (err && err.status) || 400;
     res.status(status).json({ error: err?.message || String(err) });
@@ -765,13 +756,10 @@ app.post('/api/proposals/:id/messages', async (req, res) => {
     const p = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
     if(!p) return res.status(404).json({ error: 'Not found' });
     if(!userCanAccessProposal(req.user, p)) return res.status(403).json({ error: 'Forbidden' });
-    const ensured = await ensureThreadForProposal(id);
-    if(ensured.disabled){
-      return res.status(409).json({ error: 'Chat aún no habilitado' });
-    }
+  const th = await ensureThreadForProposal(id);
     const created = await prisma.message.create({
       data: {
-        threadId: ensured.thread!.id,
+        threadId: th.id,
         fromUserId: req.user.id,
         text: body.text,
         replyToId: body.replyToId ?? undefined,
@@ -781,9 +769,9 @@ app.post('/api/proposals/:id/messages', async (req, res) => {
     });
     // Marcar lectura del emisor
     await prisma.read.upsert({
-      where: { threadId_userId: { threadId: ensured.thread!.id, userId: req.user.id } },
+      where: { threadId_userId: { threadId: th.id, userId: req.user.id } },
       update: { lastReadAt: new Date() },
-      create: { threadId: ensured.thread!.id, userId: req.user.id, lastReadAt: new Date() }
+      create: { threadId: th.id, userId: req.user.id, lastReadAt: new Date() }
     });
     // Emitir evento en tiempo real a la sala de la propuesta
     try{
@@ -819,14 +807,11 @@ app.post('/api/proposals/:id/read', async (req, res) => {
     const p = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
     if(!p) return res.status(404).json({ error: 'Not found' });
     if(!userCanAccessProposal(req.user, p)) return res.status(403).json({ error: 'Forbidden' });
-    const ensured = await ensureThreadForProposal(id);
-    if(ensured.disabled){
-      return res.json({ ok: true, disabled: true });
-    }
+  const th = await ensureThreadForProposal(id);
     await prisma.read.upsert({
-      where: { threadId_userId: { threadId: ensured.thread!.id, userId: req.user.id } },
+      where: { threadId_userId: { threadId: th.id, userId: req.user.id } },
       update: { lastReadAt: new Date() },
-      create: { threadId: ensured.thread!.id, userId: req.user.id, lastReadAt: new Date() }
+      create: { threadId: th.id, userId: req.user.id, lastReadAt: new Date() }
     });
     try{ io.to(`proposal:${id}`).emit('chat:read', { proposalId: id, userId: req.user.id, at: new Date().toISOString() }); }catch{}
     res.json({ ok: true });
