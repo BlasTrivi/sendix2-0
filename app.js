@@ -1655,11 +1655,12 @@ function renderThreads(){
         renderThreads();
       })();
     };
-    // Fades en la lista de hilos
-    updateThreadsFades();
-    ul.onscroll = updateThreadsFades;
+    // Fades (placeholder, ahora lista simple de tarjetas)
+    try{ updateThreadsFades(); }catch{}
   })();
 }
+
+function updateThreadsFades(){ /* noop tras cambio a tarjetas */ }
 
 function updateThreadsFades(){
   const ul = document.getElementById('threads');
@@ -2012,6 +2013,7 @@ function openChatByProposalId(propId){
     // Scroll al final tras pequeño delay para asegurar DOM listo
     setTimeout(()=>{ try{ const box=document.getElementById('chat-box'); if(box) box.scrollTop=box.scrollHeight; }catch{} }, 30);
   }
+  document.body.classList.add('chat-has-active');
   if(state.activeThread) markThreadRead(state.activeThread);
 }
 function renderChat(){
@@ -2034,10 +2036,12 @@ function renderChat(){
     // Ocultar panel si no hay hilo activo (mantener tarjetas limpias)
     const chatArea = document.getElementById('chat-area');
     if(chatArea) chatArea.style.display='none';
+    document.body.classList.remove('chat-has-active');
     return;
   }
   const chatArea = document.getElementById('chat-area');
   if(chatArea) chatArea.style.display='block';
+  document.body.classList.add('chat-has-active');
   if(backBtn) backBtn.style.display='inline-flex';
   chatForm.style.display='flex';
   const p = state.proposals.find(x=>threadIdFor(x)===state.activeThread);
