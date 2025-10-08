@@ -293,7 +293,7 @@ function navigate(route){
     try{ const ti = document.getElementById('typing-indicator'); if(ti) ti.style.display='none'; }catch{}
   }
   // Recalcular altura por si la UI cambió
-  updateBottomBarHeight();
+    try { (typeof updateBottomBarHeight==='function') && updateBottomBarHeight(); } catch {}
   // Reset del flag luego de navegar
   state.justOpenedChat = false;
 }
