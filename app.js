@@ -1,5 +1,5 @@
 /* =====================================================================
-   SENDIX — app.js (comentado)
+  MICARGA — app.js (comentado)
    ---------------------------------------------------------------------
    - SPA sin framework: rutas por hash, estado en LocalStorage
    - Roles: empresa, transportista, sendix (nexo)
@@ -12,7 +12,7 @@ if(typeof S==='undefined'){ var S = {}; }
 // Nexo + Chat 3 partes + Tracking global por envío (modo API: sin persistencia en LocalStorage)
 const routes = ['login','home','publicar','mis-cargas','ofertas','mis-postulaciones','mis-envios','moderacion','conversaciones','resumen','usuarios','perfil','chat','tracking'];
 const SHIP_STEPS = ['pendiente','en-carga','en-camino','entregado'];
-// Comisión SENDIX
+// Comisión MICARGA
 const COMM_RATE = 0.10; // 10%
 function commissionFor(price){
   const n = Number(price||0);
@@ -492,7 +492,7 @@ async function renderProfile(emailToView){
   const saveBtn = document.getElementById('profile-save');
   const form = document.getElementById('profile-form');
   if(!form) return;
-  // Política revisada: SENDIX puede ver otros perfiles (solo lectura) y su propio perfil en vista mínima.
+  // Política revisada: MICARGA (rol interno sendix) puede ver otros perfiles (solo lectura) y su propio perfil en vista mínima.
   const rawEmail = (emailToView || form.dataset.viewEmail || state.user?.email || '');
   const email = rawEmail.toLowerCase();
   const selfEmail = String(state.user?.email||'').toLowerCase();
@@ -524,7 +524,7 @@ async function renderProfile(emailToView){
     form.innerHTML = `<div class="profile-basic">`
       + `<p><strong>Nombre:</strong> ${escapeHtml(me.name||'')}</p>`
       + `<p><strong>Email:</strong> ${escapeHtml(me.email||'')}</p>`
-      + `<p><strong>Rol:</strong> SENDIX</p>`
+  + `<p><strong>Rol:</strong> MICARGA</p>`
       + `</div>`;
     return;
   }
@@ -1197,7 +1197,7 @@ function initPublishForm(){
       // limpiar previews
       pendingFiles = [];
       if(filePreviews){ filePreviews.innerHTML=''; filePreviews.style.display='none'; }
-      alert('¡Publicada! Esperá postulaciones que Sendix moderará.');
+  alert('¡Publicada! Esperá postulaciones que MICARGA moderará.');
       navigate('mis-cargas');
     }catch(err){
       console.error('Error al publicar carga', err);
@@ -1253,20 +1253,20 @@ async function renderMyLoadsWithProposals(focus){
       return `<li class="row">
         <div><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span></div>
         <div class="row">
-          <span class="badge">Filtrada por SENDIX</span>
+          <span class="badge">Filtrada por MICARGA</span>
           <span class="muted">Total</span> <strong>$${totalForCompany(p.price).toLocaleString('es-AR')}</strong>
           <button class="btn btn-primary" data-select-win="${p.id}">Seleccionar</button>
         </div>
         <div class="muted" style="flex-basis:100%">${lastMsg ? 'Último: '+new Date(lastMsg.ts).toLocaleString()+' · '+escapeHtml(lastMsg.from)+': '+escapeHtml(lastMsg.text) : 'Aún sin chat (se habilita al seleccionar).'}</div>
       </li>`;
-    }).join('') : (showFiltered ? '<li class="muted">Sin propuestas filtradas por SENDIX aún.</li>' : '');
+  }).join('') : (showFiltered ? '<li class="muted">Sin propuestas filtradas por MICARGA aún.</li>' : '');
     return `<li id="load-${l.id}">
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       <div class="muted">Tipo: ${l.tipo} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')}</div>
       ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>4? `<span class="muted">+${l.adjuntos.length-4} más</span>`:''}</div>`:''}
       ${approvedBlock ? `<div class="mt"><strong>Envío seleccionado</strong></div>${approvedBlock}` : ''}
-      ${showFiltered ? `<div class="mt"><strong>Propuestas filtradas por SENDIX</strong></div>
+  ${showFiltered ? `<div class="mt"><strong>Propuestas filtradas por MICARGA</strong></div>
       <ul class="list">${filteredBlock}</ul>` : ''}
     </li>`;
   }).join('') : '<li class="muted">No publicaste cargas.</li>';
@@ -1342,7 +1342,7 @@ async function renderOffers(){
       try{
         await API.createProposal({ loadId: id, carrierEmail: state.user.email, carrierName: state.user.name, vehicle: String(data.vehicle||''), price: Number(data.price||0) });
         await syncProposalsFromAPI();
-        alert('¡Postulación enviada! Queda en revisión por SENDIX.');
+  alert('¡Postulación enviada! Queda en revisión por MICARGA.');
       }catch{
         state.proposals.unshift({
           id: genId(), loadId:id, carrier: state.user.name,
@@ -1431,7 +1431,7 @@ function renderShipments(){
   }
 }
 
-// SENDIX: Moderación (filtrar) + acceso a chat de aprobados (cuando la empresa elija)
+// MICARGA: Moderación (filtrar) + acceso a chat de aprobados (cuando la empresa elija)
 function renderInbox(){
   const ul = document.getElementById('inbox');
   // Sincronizar propuestas y cargas para tener contexto completo en la bandeja
@@ -1469,9 +1469,9 @@ function renderInbox(){
   const matchesStatus = (p)=> statusFilter==='all' ? true : (p.status===statusFilter);
   // Solo propuestas que no han sido filtradas ni rechazadas
   const pending = state.proposals.filter(p=>p.status==='pending' && matchesEmail(p) && matchesQ(p) && matchesStatus(p));
-  // Propuestas que han sido filtradas por SENDIX y no han sido aprobadas ni rechazadas
+  // Propuestas que han sido filtradas por MICARGA y no han sido aprobadas ni rechazadas
   const filteredList = state.proposals.filter(p=>p.status==='filtered' && matchesEmail(p) && matchesQ(p) && matchesStatus(p)).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
-  // Propuestas filtradas por SENDIX y aprobadas por la empresa
+  // Propuestas filtradas por MICARGA y aprobadas por la empresa
   const filteredAndApproved = state.proposals.filter(p=>p.status==='approved' && matchesEmail(p) && matchesQ(p) && matchesStatus(p)).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
   ul.innerHTML = `<h3>Pendientes</h3>` + (pending.length ? pending.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
@@ -1485,7 +1485,7 @@ function renderInbox(){
       </div>
     </li>`;
   }).join('') : '<li class="muted">No hay propuestas pendientes.</li>');
-  ul.innerHTML += `<h3 class='mt'>Filtradas por SENDIX (${filteredList.length})</h3>` + (filteredList.length ? filteredList.map(p=>{
+  ul.innerHTML += `<h3 class='mt'>Filtradas por MICARGA (${filteredList.length})</h3>` + (filteredList.length ? filteredList.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
       <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
@@ -1498,8 +1498,8 @@ function renderInbox(){
     </li>`;
   }).join('') : '<li class="muted">No hay propuestas filtradas.</li>');
 
-  // Bloque: Filtradas por SENDIX y aprobadas por la empresa
-  ul.innerHTML += `<h3 class='mt'>Filtradas por SENDIX y aprobadas por la empresa (${filteredAndApproved.length})</h3>` + (filteredAndApproved.length ? filteredAndApproved.map(p=>{
+  // Bloque: Filtradas por MICARGA y aprobadas por la empresa
+  ul.innerHTML += `<h3 class='mt'>Filtradas por MICARGA y aprobadas por la empresa (${filteredAndApproved.length})</h3>` + (filteredAndApproved.length ? filteredAndApproved.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
       <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle||'-'})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="badge">Aprobada</span></div>
@@ -1518,7 +1518,7 @@ function renderInbox(){
     (async()=>{
       try{ await API.filterProposal(id); await syncProposalsFromAPI(); }
       catch{ if(p.status==='pending'){ p.status='filtered'; save(); } }
-      renderInbox(); alert('Marcada como FILTRADA. La empresa decidirá.');
+  renderInbox(); alert('Marcada como FILTRADA. La empresa decidirá.');
     })();
   }));
   ul.querySelectorAll('[data-unfilter]').forEach(b=>b.addEventListener('click', ()=>{
@@ -1539,7 +1539,7 @@ function renderInbox(){
       renderInbox();
     })();
   }));
-  // Abrir perfil (SENDIX) del transportista de la propuesta
+  // Abrir perfil (MICARGA) del transportista de la propuesta
   ul.querySelectorAll('[data-view-user]')?.forEach(b=> b.addEventListener('click', ()=>{
     const email = b.dataset.viewUser;
     if(!email) return;
@@ -1562,7 +1562,7 @@ function renderInbox(){
   if(stEl2) stEl2.onchange = ()=> renderInbox();
 }
 
-// SENDIX/Empresa/Transportista: lista de chats aprobados
+// MICARGA/Empresa/Transportista: lista de chats aprobados
 function renderThreads(){
   const container = document.getElementById('threads-cards');
   const q = (document.getElementById('chat-search')?.value||'').toLowerCase();
@@ -1701,7 +1701,7 @@ function renderMetrics(){
   document.getElementById('m-pending').textContent = pending;
   document.getElementById('m-filtered').textContent = filtered;
 
-  // Comisiones (SENDIX)
+  // Comisiones (MICARGA)
   const comms = state.commissions||[];
   const dateForPeriod = (c)=> new Date(c.invoiceAt || c.createdAt);
   const sum = (arr)=> arr.reduce((a,b)=>a+Number(b||0),0);
@@ -1995,7 +1995,7 @@ function formatEstadoCsv(status){
   return s ? (s[0].toUpperCase()+s.slice(1)) : '';
 }
 // Apertura de chat adaptada a nueva UI (tarjetas)
-// Chat (mediación) — por hilo (loadId + carrier) con SENDIX como 3er participante
+// Chat (mediación) — por hilo (loadId + carrier) con MICARGA como 3er participante
 function openChatByProposalId(propId){
   const p = state.proposals.find(x=>x.id===propId);
   state.activeThread = p ? threadIdFor(p) : null;
@@ -2048,7 +2048,7 @@ function renderChat(){
   if(!p){ box.innerHTML='<div class="muted">Conversación no disponible.</div>'; return; }
   const l = state.loads.find(x=>x.id===p.loadId);
   title.textContent = `${l.origen} → ${l.destino}`;
-  topic.textContent = `Empresa: ${l.owner} · Transportista: ${p.carrier} · Dimensiones: ${l.dimensiones||'-'} · Nexo: SENDIX`;
+  topic.textContent = `Empresa: ${l.owner} · Transportista: ${p.carrier} · Dimensiones: ${l.dimensiones||'-'} · Nexo: MICARGA`;
   // Sincronizar mensajes del backend para esta propuesta y re-render si cambian
   (async()=>{
     try{

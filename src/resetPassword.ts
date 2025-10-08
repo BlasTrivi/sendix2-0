@@ -58,7 +58,7 @@ async function sendResetEmail(to: string, html: string){
   // Prioridad: Resend -> SMTP -> simulación
   if(resend){
     try {
-      const r = await resend.emails.send({ from: RESEND_FROM || 'no-reply@sendix', to, subject: 'Recuperación de contraseña - SENDIX', html });
+  const r = await resend.emails.send({ from: RESEND_FROM || 'no-reply@micarga', to, subject: 'Recuperación de contraseña - MICARGA', html });
       if(!isProd) console.log('✅ Email (Resend) enviado id:', r.data?.id || r);
       return { provider: 'resend', id: r.data?.id };
     } catch(err:any){
@@ -69,7 +69,7 @@ async function sendResetEmail(to: string, html: string){
   const smtp = getSmtpTransport();
   if(smtp){
     try {
-      const info = await smtp.sendMail({ from: SMTP_FROM || 'no-reply@sendix', to, subject: 'Recuperación de contraseña - SENDIX', html });
+  const info = await smtp.sendMail({ from: SMTP_FROM || 'no-reply@micarga', to, subject: 'Recuperación de contraseña - MICARGA', html });
       if(!isProd) console.log('✅ Email (SMTP) enviado id:', info.messageId);
       return { provider: 'smtp', id: info.messageId };
     } catch(err:any){

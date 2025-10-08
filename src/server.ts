@@ -554,7 +554,7 @@ app.patch('/api/proposals/:id', async (req, res) => {
     const id = String(req.params.id);
     const existing = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
     if(!existing) return res.status(404).json({ error: 'Not found' });
-    // Autorización: sólo SENDIX, la empresa dueña de la load o el transportista asignado
+  // Autorización: sólo MICARGA (rol interno 'sendix'), la empresa dueña de la load o el transportista asignado
     if(!userCanAccessProposal(req.user, { load: { ownerId: existing.load.ownerId }, carrierId: existing.carrierId })){
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -562,7 +562,7 @@ app.patch('/api/proposals/:id', async (req, res) => {
     // Reglas de negocio: limitar quién puede cambiar cada campo
     const updateData: any = {};
     if(typeof data.vehicle !== 'undefined' || typeof data.price !== 'undefined'){
-      // Sólo transportista (carrier) o sendix pueden ajustar vehicle/price
+  // Sólo transportista (carrier) o admin MICARGA (rol interno 'sendix') pueden ajustar vehicle/price
       if(req.user.role === 'transportista' && req.user.id !== existing.carrierId){
         return res.status(403).json({ error: 'No autorizado a editar vehicle/price' });
       }
@@ -574,14 +574,14 @@ app.patch('/api/proposals/:id', async (req, res) => {
       }
     }
     if(typeof data.shipStatus !== 'undefined'){
-      // Transportista (dueño), empresa dueña o sendix pueden avanzar shipStatus
+  // Transportista (dueño), empresa dueña o admin MICARGA (rol interno 'sendix') pueden avanzar shipStatus
       if(!(req.user.role === 'sendix' || (req.user.role === 'transportista' && req.user.id === existing.carrierId) || (req.user.role === 'empresa' && req.user.id === existing.load.ownerId))){
         return res.status(403).json({ error: 'No autorizado a cambiar shipStatus' });
       }
       updateData.shipStatus = data.shipStatus as any;
     }
     if(typeof data.status !== 'undefined'){
-      // status se gestiona por endpoints dedicados (filter/reject/select) – bloquear aquí salvo sendix
+  // status se gestiona por endpoints dedicados (filter/reject/select) – bloquear aquí salvo admin MICARGA
       if(req.user.role !== 'sendix'){
         return res.status(403).json({ error: 'No autorizado a cambiar status directamente' });
       }
@@ -903,7 +903,7 @@ app.patch('/api/commissions/:id', async (req, res) => {
   }
 });
 
-// ---- API: Users (admin SENDIX) ----
+// ---- API: Users (admin MICARGA, rol interno 'sendix') ----
 app.get('/api/users', requireRole('sendix'), async (req, res) => {
   try{
     const { role, q, cargas, vehiculos, seguroOk, senasa, imo, alcance } = req.query as Record<string,string>;
@@ -981,30 +981,30 @@ async function shutdown(signal: string) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// --- Bootstrap: crear admin SENDIX si hay variables configuradas ---
+// --- Bootstrap: crear admin MICARGA si hay variables configuradas (rol interno 'sendix') ---
 async function ensureSendixAdmin(){
   try{
     const email = (process.env.SENDIX_ADMIN_EMAIL||'').toLowerCase().trim();
     const password = process.env.SENDIX_ADMIN_PASSWORD||'';
-    const name = process.env.SENDIX_ADMIN_NAME || 'Nexo SENDIX';
+  const name = process.env.SENDIX_ADMIN_NAME || 'Nexo MICARGA';
     if(!email || !password){
-      console.log('ℹ️ SENDIX_ADMIN_EMAIL/PASSWORD no configurados: omitiendo bootstrap de admin');
+  console.log('ℹ️ SENDIX_ADMIN_EMAIL/PASSWORD no configurados: omitiendo bootstrap de admin MICARGA');
       return;
     }
     const existing = await prisma.usuario.findUnique({ where: { email } });
     if(existing){
       if(existing.role !== 'sendix'){
         await prisma.usuario.update({ where: { id: existing.id }, data: { role: 'sendix' } });
-        console.log('✅ Usuario existente marcado como sendix:', email);
+  console.log('✅ Usuario existente marcado como rol administrador (sendix) para MICARGA:', email);
       } else {
-        console.log('ℹ️ Admin SENDIX ya existe:', email);
+  console.log('ℹ️ Admin MICARGA ya existe:', email);
       }
       return;
     }
     const hash = await bcrypt.hash(password, 10);
     await prisma.usuario.create({ data: { email, name, role: 'sendix', passwordHash: hash } });
-    console.log('✅ Admin SENDIX creado:', email);
-  }catch(err){ console.error('Error creando admin SENDIX:', err); }
+  console.log('✅ Admin MICARGA creado:', email);
+  }catch(err){ console.error('Error creando admin MICARGA:', err); }
 }
 
 (async()=>{ await ensureSendixAdmin(); })();

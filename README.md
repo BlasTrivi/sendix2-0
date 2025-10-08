@@ -1,6 +1,6 @@
-# SENDIX
+# MICARGA
 
-Plataforma logística full‑stack que conecta Empresas y Transportistas con un rol moderador (SENDIX). Incluye:
+Plataforma logística full‑stack que conecta Empresas y Transportistas con un rol moderador (MICARGA). Incluye:
 
 * Publicación y postulación de cargas
 * Moderación / filtrado de propuestas
@@ -48,7 +48,8 @@ Plataforma logística full‑stack que conecta Empresas y Transportistas con un 
 
 ## 🧬 Modelos clave (Prisma)
 
-* Usuario (roles: empresa, transportista, sendix)
+* Usuario (roles: empresa, transportista, sendix)  
+  (El identificador interno del rol administrador sigue siendo 'sendix' para compatibilidad, aunque la marca visible es MICARGA.)
 * Load (carga publicada por empresa)
 * Proposal (propuesta del transportista + estado de moderación + shipStatus)
 * Thread (1‑1 con Proposal aprobada; compone el chat)
@@ -111,7 +112,7 @@ La variable `DATABASE_URL` ya apunta al servicio interno `db`.
 * Logout: `/api/auth/logout` (borra cookie).
 * `GET /api/me` entrega usuario actual (o `null`).
 * Cookie: httpOnly, SameSite derivado de `COOKIE_SAMESITE` o `none` si hay CORS_ORIGIN.
-* Admin SENDIX opcional se autogenera si se definen `SENDIX_ADMIN_EMAIL` y `SENDIX_ADMIN_PASSWORD`.
+* Admin MICARGA opcional se autogenera si se definen `SENDIX_ADMIN_EMAIL` y `SENDIX_ADMIN_PASSWORD` (variables mantienen prefijo histórico para compatibilidad).
 
 ### Variables relevantes
 
@@ -122,7 +123,7 @@ La variable `DATABASE_URL` ya apunta al servicio interno `db`.
 | CORS_ORIGIN | Lista separada por comas de orígenes permitidos |
 | COOKIE_SAMESITE | lax | none | strict (auto none si hay CORS_ORIGIN) |
 | JWT_SECRET / JWT_ACCESS_SECRET | Clave firma JWT |
-| SENDIX_ADMIN_EMAIL / PASSWORD / NAME | Bootstrap usuario rol sendix |
+| SENDIX_ADMIN_EMAIL / PASSWORD / NAME | Bootstrap usuario rol admin (sendix) |
 | APP_BASE_URL | Base absoluta para construir links de reset |
 | SMTP_HOST / SMTP_PORT | Servidor SMTP fallback |
 | SMTP_USER / SMTP_PASS | Credenciales SMTP |
@@ -168,7 +169,7 @@ Mensajes incluyen: id, text, createdAt, from { id, name, role }, replyToId, atta
 
 1. Empresa crea Load (`/api/loads`)
 2. Transportistas envían Proposal (`/api/proposals`)
-3. SENDIX filtra (`/filter`) / rechaza (`/reject`)
+3. MICARGA filtra (`/filter`) / rechaza (`/reject`)
 4. Empresa selecciona ganadora (`/select`) → status=approved + se asegura Thread
 5. Transportista / Empresa avanzan `shipStatus` (en_carga → en_camino → entregado)
 6. Cada cambio relevante dispara un mensaje automático y evento tiempo real
@@ -238,8 +239,8 @@ Post‑install genera el Prisma Client automáticamente (ignora error si no hay 
 El `Dockerfile` genera una imagen multi‑stage (build + runtime Alpine):
 
 ```
-docker build -t sendix .
-docker run -p 4000:4000 --env-file .env sendix
+docker build -t micarga .  # (podés seguir usando 'sendix' si ya existe la imagen)
+docker run -p 4000:4000 --env-file .env micarga
 ```
 
 Requisitos: que `DATABASE_URL` apunte a una base accesible desde el contenedor.
@@ -288,5 +289,5 @@ Para producir versión estable: `npm run build && npm start`.
 
 ---
 
-Hecho con foco en simplicidad, trazabilidad y UX rápida para el flujo logístico de SENDIX. ✨
+Hecho con foco en simplicidad, trazabilidad y UX rápida para el flujo logístico de MICARGA. ✨
 
