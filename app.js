@@ -1010,7 +1010,7 @@ async function renderLoads(onlyMine=false){
   await syncLoadsFromAPI();
   const ul = document.getElementById('loads-list');
   const data = onlyMine ? state.loads.filter(l=>l.owner===state.user?.name) : state.loads;
-  ul.innerHTML = data.length ? data.map(l=>`
+    ul.innerHTML = data.length ? data.map(l=> `
     <li>
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       <div class="muted">Tipo: ${l.tipo} ${l.meta?.containerTipo? '· Cont: '+l.meta.containerTipo:''} ${l.meta?.producto? '· Prod: '+l.meta.producto:''} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')} · Por: ${l.owner}</div>
@@ -1450,7 +1450,7 @@ function renderShipments(){
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
-      <div class="muted">Cliente: ${l?.owner} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Precio: $${p.price.toLocaleString('es-AR')}</div>
+  <div class="muted">Cliente: ${l?.owner} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · ${state.user?.role==='empresa' ? `Total: $${totalForCompany(p.price).toLocaleString('es-AR')}` : `Precio: $${p.price.toLocaleString('es-AR')}`}</div>
       <div class="row">
         <select data-ship="${p.id}">
           ${SHIP_STEPS.map(s=>`<option value="${s}" ${s===(p.shipStatus||'pendiente')?'selected':''}>${s}</option>`).join('')}
@@ -1648,11 +1648,15 @@ function renderThreads(){
       const title = `${l?.origen||'?'} → ${l?.destino||'?'}`;
       const unread = unreadMap[p.id]?.unread || 0;
       const lastTs = unreadMap[p.id]?.lastMessageAt ? new Date(unreadMap[p.id].lastMessageAt).getTime() : (p.createdAt ? new Date(p.createdAt).getTime() : 0);
+      // Mostrar total para empresa y precio del transportista para transportista/micarga
+      const isEmpresa = state.user?.role === 'empresa';
+      const priceValue = (typeof p.price === 'number') ? (isEmpresa ? totalForCompany(p.price) : p.price) : null;
+      const priceLabel = isEmpresa ? 'Total' : 'Precio';
       const subParts = [
         `Empresa: ${l?.owner||'-'}`,
         `Transportista: ${p.carrier||'-'}`,
         `Vehículo: ${p.vehicle||'-'}`,
-        `Precio: ${typeof p.price==='number'? ('$'+p.price.toLocaleString('es-AR')):'-'}`
+        `${priceLabel}: ${priceValue!==null? ('$'+priceValue.toLocaleString('es-AR')):'-'}`
       ];
       const sub = subParts.join(' · ');
       const match = (title+' '+sub).toLowerCase().includes(q);
