@@ -819,6 +819,11 @@ const API = {
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   },
+  async deleteProposal(id){
+    const res = await fetch(`${API.base}/api/proposals/${id}`, { method:'DELETE', headers: { ...authHeaders() }, credentials: 'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
+    return res.json();
+  },
   async getCommissions(params={}){
     const p = new URLSearchParams();
     Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
@@ -1257,6 +1262,7 @@ async function renderMyLoadsWithProposals(focus){
           <span class="badge">Filtrada por MICARGA</span>
           <span class="muted">Total</span> <strong>$${totalForCompany(p.price).toLocaleString('es-AR')}</strong>
           <button class="btn btn-primary" data-select-win="${p.id}">Seleccionar</button>
+          <button class="btn" data-prop-del="${p.id}">Eliminar</button>
         </div>
         <div class="muted" style="flex-basis:100%">${lastMsg ? 'Último: '+new Date(lastMsg.ts).toLocaleString()+' · '+escapeHtml(lastMsg.from)+': '+escapeHtml(lastMsg.text) : 'Aún sin chat (se habilita al seleccionar).'}</div>
       </li>`;
@@ -1297,6 +1303,26 @@ async function renderMyLoadsWithProposals(focus){
   // Acciones sobre envío aprobado (chat / ver envío)
   ul.querySelectorAll('[data-approved-chat]')?.forEach(b=> b.addEventListener('click', ()=> openChatByProposalId(b.dataset.approvedChat)));
   ul.querySelectorAll('[data-approved-track]')?.forEach(b=> b.addEventListener('click', ()=>{ state.activeShipmentProposalId = b.dataset.approvedTrack; save(); navigate('tracking'); }));
+  // Eliminar propuesta (solo filtrada/pending y no aprobada)
+  ul.querySelectorAll('[data-prop-del]')?.forEach(b=> b.addEventListener('click', ()=>{
+    const id = b.dataset.propDel;
+    const p = state.proposals.find(x=>x.id===id);
+    if(!p) return;
+    if(p.status==='approved'){ alert('No podés eliminar una propuesta aprobada.'); return; }
+    if(!confirm('¿Eliminar esta propuesta? Esta acción no se puede deshacer.')) return;
+    (async()=>{
+      try{
+        await API.deleteProposal(id);
+        await syncProposalsFromAPI();
+      }catch(err){
+        // Fallback local
+        state.proposals = state.proposals.filter(x=>x.id!==id);
+        save();
+      }
+      renderMyLoadsWithProposals();
+      alert('Propuesta eliminada');
+    })();
+  }));
 }
 
 // TRANSPORTISTA

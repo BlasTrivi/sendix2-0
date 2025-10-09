@@ -639,6 +639,29 @@ app.patch('/api/proposals/:id', async (req, res) => {
   }
 });
 
+// Eliminar propuesta
+app.delete('/api/proposals/:id', async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Auth required' });
+    const id = String(req.params.id);
+    const existing = await prisma.proposal.findUnique({ where: { id }, include: { load: true, thread: true, commission: true } });
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    // Reglas: no permitir eliminar propuestas aprobadas
+    if (existing.status === 'approved') return res.status(400).json({ error: 'No se puede eliminar una propuesta aprobada' });
+    // Autorización: empresa dueña de la carga, transportista dueño de la propuesta o admin MICARGA
+    const isOwnerEmpresa = req.user.role === 'empresa' && req.user.id === existing.load.ownerId;
+    const isCarrier = req.user.role === 'transportista' && req.user.id === existing.carrierId;
+    const isMicarga = req.user.role === 'micarga';
+    if (!(isOwnerEmpresa || isCarrier || isMicarga)) return res.status(403).json({ error: 'Forbidden' });
+    // Seguridad extra: si por alguna razón existiera thread/commission asociados, bloquear (sólo deberían existir si estuvo aprobada)
+    if (existing.thread || existing.commission) return res.status(400).json({ error: 'No se puede eliminar: la propuesta tiene actividad asociada' });
+    await prisma.proposal.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (err:any) {
+    res.status(400).json({ error: err?.message || String(err) });
+  }
+});
+
 // Moderación rápida: filtrar
 app.post('/api/proposals/:id/filter', requireRole('micarga'), async (req, res) => {
   try{
