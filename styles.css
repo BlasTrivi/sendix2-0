@@ -50,14 +50,6 @@
   --focus-outline: 2px solid var(--secondary);
   --focus-outline-offset: 2px;
   --transition-base: .18s cubic-bezier(.4,0,.2,1);
-  /* Chat tokens */
-  --bubble-me-bg: linear-gradient(180deg, #e9fbf8, #d6f2ee);
-  --bubble-me-border: #bfe7e2;
-  --bubble-other-bg: #ffffff;
-  --bubble-other-border: var(--border);
-  --bubble-shadow: 0 2px 10px rgba(14,47,68,.06);
-  --chat-header-bg: linear-gradient(180deg, rgba(243,146,0,.10), rgba(255,255,255,1));
-  --chat-header-border: #ffe6c2;
 }
 /* --------------------
    Mejoras visuales generales
@@ -221,8 +213,8 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 /* --------------------
    Formularios e inputs
    -------------------- */
-.form{display:grid; gap:12px; max-width:560px}
-.form.small{max-width:460px}
+.form{display:grid; gap:12px; max-width:520px}
+.form.small{max-width:420px}
 .form input, .form textarea{padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:var(--step--1)}
 .publish-form input, .publish-form textarea, .publish-form select { line-height:1.35; padding:14px 16px; }
 .form input::placeholder, .form textarea::placeholder{color:#94a6b2}
@@ -235,48 +227,6 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 }
 .roles{border:1px dashed var(--border); padding:10px; border-radius:12px}
 .radio{display:block; margin:6px 0}
-
-/* Registro: tarjeta y tabs */
-.auth-card{ background: #fff; border:1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-sm); }
-.segmented{ display:flex; background:#f3f7f8; border:1px solid var(--border); border-radius: 999px; padding:4px; gap:6px; margin-left:auto; }
-.segmented .btn{ border:none; background:transparent; padding:8px 12px; border-radius: 999px; }
-.segmented .btn[aria-selected="true"], .segmented .btn.active{ background:#fff; box-shadow: var(--shadow-sm); }
-.form label > span{ opacity:.9; margin-right:6px }
-.form .hint{ color: var(--muted); font-size: 12px; margin-top: -6px; }
-
-/* Más prolijo: espaciado y orden específico para el bloque de registro */
-.auth-card{ padding: 22px; }
-.auth-card > .row:first-child{ margin-bottom: 10px; }
-.auth-card h3{ margin: 4px 0 0; }
-.auth-card p.muted{ margin: -2px 0 10px; }
-.auth-card .form{ gap: 14px; }
-.auth-card .form label{ display: grid; gap: 6px; }
-.auth-card .form input, .auth-card .form textarea{ padding: 14px 16px; font-size: 1rem; }
-.auth-card .row{ gap: 12px; }
-.auth-card button[type="submit"]{ width: 100%; padding: 14px 18px; margin-top: 4px; }
-
-/* Fieldsets más claros y en columnas cuando hay espacio */
-.auth-card .roles{ padding: 14px; border-style: solid; background: #fbfdfe; }
-.auth-card .roles .radio{ margin: 4px 0; }
-.auth-card .roles .radio input{ margin-right: 6px; }
-.auth-card .roles{
-  display: grid;
-  grid-template-columns: 1fr; /* mobile por defecto */
-  gap: 8px 12px;
-}
-@media (min-width: 720px){
-  .auth-card .roles{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-
-/* Tabs segmentadas con más aire */
-.auth-card .segmented{ gap: 8px; padding: 6px; }
-.auth-card .segmented .btn{ padding: 10px 14px; font-weight: 700; }
-
-/* Fila de Nombre/Apellido con mejor separación */
-.auth-card #register-carrier .row{ gap: 12px; }
-
-/* Más aire entre CTA de registro debajo del login */
-#auth-register-cta{ gap: 12px !important; margin-top: 12px !important; }
 
 /* --------------------
    Listas
@@ -389,6 +339,7 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .thread-list.show-top-fade::before{ opacity:1 }
 .thread-list.show-bottom-fade::after{ opacity:1 }
 
+<<<<<<< HEAD
 /* ====================
    Chat 2.0 — Estética y responsive
    ==================== */
@@ -583,6 +534,8 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
   .chat-panel #chat-topic{ display: none; }
 }
 
+=======
+>>>>>>> parent of 2eb07eb (mejorar: agregar estilos y diseño para la interfaz de chat, incluyendo burbujas de mensajes y barra de entrada)
 /* --------------------
    Selects
    -------------------- */
@@ -860,11 +813,11 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
   background: var(--card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: 40px 34px 34px 34px;
+  padding: 38px 32px 32px 32px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
 }
 .login-avatar {
   width: 72px;
@@ -900,7 +853,7 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 .login-btn {
   width: 100%;
