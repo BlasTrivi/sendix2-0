@@ -50,6 +50,14 @@
   --focus-outline: 2px solid var(--secondary);
   --focus-outline-offset: 2px;
   --transition-base: .18s cubic-bezier(.4,0,.2,1);
+  /* Chat tokens */
+  --bubble-me-bg: linear-gradient(180deg, #e9fbf8, #d6f2ee);
+  --bubble-me-border: #bfe7e2;
+  --bubble-other-bg: #ffffff;
+  --bubble-other-border: var(--border);
+  --bubble-shadow: 0 2px 10px rgba(14,47,68,.06);
+  --chat-header-bg: linear-gradient(180deg, rgba(243,146,0,.10), rgba(255,255,255,1));
+  --chat-header-border: #ffe6c2;
 }
 /* --------------------
    Mejoras visuales generales
@@ -213,8 +221,8 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 /* --------------------
    Formularios e inputs
    -------------------- */
-.form{display:grid; gap:12px; max-width:520px}
-.form.small{max-width:420px}
+.form{display:grid; gap:12px; max-width:560px}
+.form.small{max-width:460px}
 .form input, .form textarea{padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:var(--step--1)}
 .publish-form input, .publish-form textarea, .publish-form select { line-height:1.35; padding:14px 16px; }
 .form input::placeholder, .form textarea::placeholder{color:#94a6b2}
@@ -227,6 +235,48 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 }
 .roles{border:1px dashed var(--border); padding:10px; border-radius:12px}
 .radio{display:block; margin:6px 0}
+
+/* Registro: tarjeta y tabs */
+.auth-card{ background: #fff; border:1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-sm); }
+.segmented{ display:flex; background:#f3f7f8; border:1px solid var(--border); border-radius: 999px; padding:4px; gap:6px; margin-left:auto; }
+.segmented .btn{ border:none; background:transparent; padding:8px 12px; border-radius: 999px; }
+.segmented .btn[aria-selected="true"], .segmented .btn.active{ background:#fff; box-shadow: var(--shadow-sm); }
+.form label > span{ opacity:.9; margin-right:6px }
+.form .hint{ color: var(--muted); font-size: 12px; margin-top: -6px; }
+
+/* Más prolijo: espaciado y orden específico para el bloque de registro */
+.auth-card{ padding: 22px; }
+.auth-card > .row:first-child{ margin-bottom: 10px; }
+.auth-card h3{ margin: 4px 0 0; }
+.auth-card p.muted{ margin: -2px 0 10px; }
+.auth-card .form{ gap: 14px; }
+.auth-card .form label{ display: grid; gap: 6px; }
+.auth-card .form input, .auth-card .form textarea{ padding: 14px 16px; font-size: 1rem; }
+.auth-card .row{ gap: 12px; }
+.auth-card button[type="submit"]{ width: 100%; padding: 14px 18px; margin-top: 4px; }
+
+/* Fieldsets más claros y en columnas cuando hay espacio */
+.auth-card .roles{ padding: 14px; border-style: solid; background: #fbfdfe; }
+.auth-card .roles .radio{ margin: 4px 0; }
+.auth-card .roles .radio input{ margin-right: 6px; }
+.auth-card .roles{
+  display: grid;
+  grid-template-columns: 1fr; /* mobile por defecto */
+  gap: 8px 12px;
+}
+@media (min-width: 720px){
+  .auth-card .roles{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+/* Tabs segmentadas con más aire */
+.auth-card .segmented{ gap: 8px; padding: 6px; }
+.auth-card .segmented .btn{ padding: 10px 14px; font-weight: 700; }
+
+/* Fila de Nombre/Apellido con mejor separación */
+.auth-card #register-carrier .row{ gap: 12px; }
+
+/* Más aire entre CTA de registro debajo del login */
+#auth-register-cta{ gap: 12px !important; margin-top: 12px !important; }
 
 /* --------------------
    Listas
@@ -338,6 +388,193 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .thread-list::after{ bottom:0; background: linear-gradient(to top, #ffffff 40%, rgba(255,255,255,0)); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
 .thread-list.show-top-fade::before{ opacity:1 }
 .thread-list.show-bottom-fade::after{ opacity:1 }
+
+/* ====================
+   Chat 2.0 — Estética y responsive
+   ==================== */
+/* Panel y header */
+.chat-panel{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+.chat-panel .chat-main-header{
+  background: var(--chat-header-bg);
+  border-bottom: 1px solid var(--chat-header-border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chat-panel .chat-main-left h3#chat-title{
+  margin: 0;
+  line-height: 1.2;
+}
+.chat-panel #chat-topic{
+  margin: 2px 0 0 0;
+  color: var(--muted);
+  font-size: .92rem;
+}
+.chat-panel .chat-main-actions .btn{
+  white-space: nowrap;
+}
+
+/* Caja de mensajes y fades */
+.chat-panel .chat-box.big{
+  background: #fbfdfe;
+  display: flex;           /* override grid para permitir agrupaciones futuras */
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  min-height: 0;
+}
+
+/* Burbujas de chat */
+.bubble{
+  max-width: min(78%, 720px);
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--bubble-other-border);
+  box-shadow: var(--bubble-shadow);
+  background: var(--bubble-other-bg);
+}
+.bubble.me{
+  margin-left: auto;
+  background: var(--bubble-me-bg);
+  border-color: var(--bubble-me-border);
+}
+.bubble.other{
+  margin-right: auto;
+  background: var(--bubble-other-bg);
+}
+/* Esquinas tipo "cola" sutiles */
+.bubble.me{ border-bottom-right-radius: 6px; }
+.bubble.other{ border-bottom-left-radius: 6px; }
+
+/* Texto dentro de burbuja */
+.bubble strong{ color: var(--primary); }
+.bubble .bubble-reply{
+  background: #f4faf9;
+  border-left: 3px solid var(--secondary);
+  border-radius: 10px;
+  padding: 6px 8px;
+  margin: -4px -2px 6px -4px;
+}
+/* Adjuntos */
+.bubble .attachments img{ box-shadow: 0 1px 6px rgba(14,47,68,.08); }
+
+/* Timestamp al final de la burbuja */
+.bubble > .muted:last-child{
+  display: block !important;
+  margin-top: 6px;
+  font-size: 11px !important;
+  color: var(--muted) !important;
+  text-align: left;
+}
+.bubble.me > .muted:last-child{ text-align: right; }
+
+/* Agrupación visual (reduce separación entre burbujas del mismo emisor) */
+.chat-panel .chat-box.big .bubble + .bubble{ margin-top: 0; }
+.chat-panel .chat-box.big .bubble.me + .bubble.me{ margin-top: -4px; }
+.chat-panel .chat-box.big .bubble.other + .bubble.other{ margin-top: -4px; }
+.chat-panel .chat-box.big .bubble.me + .bubble.other{ margin-top: 6px; }
+.chat-panel .chat-box.big .bubble.other + .bubble.me{ margin-top: 6px; }
+
+/* Animación de aparición */
+@keyframes bubbleIn{ from{ opacity:0; transform: translateY(4px) scale(.98); } to{ opacity:1; transform: none; } }
+.chat-panel .chat-box.big .bubble{ animation: bubbleIn .16s ease-out; }
+
+/* Barra de respuesta */
+.reply-bar{
+  background: linear-gradient(180deg, #ffffff, #f6fbfa);
+  border-bottom: 1px solid var(--border);
+}
+.reply-bar .reply-snippet{ color: var(--muted); }
+
+/* Input de chat */
+.chat-input{
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.86), #fff);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: auto 1fr auto; /* clip de icono, textarea y botón */
+  gap: 10px;
+}
+.chat-input #btn-attach{
+  width: 40px; height: 40px;
+  display: inline-grid; place-items: center;
+  border-radius: 12px;
+  transition: transform .12s ease, box-shadow .18s ease, background .18s ease;
+}
+.chat-input #btn-attach:hover{ background: #f6faf9; box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.chat-input textarea{
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  min-height: 40px; max-height: 160px;
+  line-height: 1.35;
+}
+.chat-input textarea:focus{ box-shadow: var(--ring); border-color: rgba(58,175,169,.45); outline: none; }
+.chat-input .btn.btn-primary{
+  border: none;
+  height: 40px;
+  border-radius: 999px;
+  padding: 0 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.chat-input .btn.btn-primary::after{ content: ' ➤'; font-weight: 900; margin-left: 6px; }
+
+/* Indicador de "escribiendo" como burbuja sutil */
+#typing-indicator{
+  margin: 6px 16px 0 16px;
+  background: #f2f6f8;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: inline-block;
+  width: fit-content;
+  padding: 4px 10px;
+}
+
+/* Menú contextual refinado */
+#context-menu{
+  min-width: 160px;
+  padding: 6px 0;
+  border-radius: 10px;
+  box-shadow: 0 16px 28px rgba(14,47,68,.14);
+  border: 1px solid var(--border);
+}
+#context-menu button{ font-size: .95rem; }
+
+/* Previsualización de adjuntos sobre el input */
+#attach-previews{
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+
+/* Responsive específico del chat */
+@media (max-width: 860px){
+  .chat-panel .chat-box.big{ padding: 12px; }
+  .bubble{ max-width: 85%; }
+}
+@media (max-width: 600px){
+  .chat-panel .chat-main-header{ padding: 10px 12px; }
+  .chat-panel .chat-box.big{ padding: 10px; gap: 6px; }
+  .bubble{ max-width: 92%; padding: 10px 12px; }
+  .chat-input{ padding: 10px; gap: 8px; grid-template-columns: auto 1fr auto; }
+  .chat-input #btn-attach{ width: 38px; height: 38px; }
+  .chat-input .btn.btn-primary{ height: 38px; padding: 0 14px; }
+}
+@media (max-width: 400px){
+  .chat-panel .chat-main-actions .btn{ padding: 8px 10px; }
+  .chat-panel #chat-topic{ display: none; }
+}
 
 /* --------------------
    Selects
@@ -616,11 +853,11 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
   background: var(--card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: 38px 32px 32px 32px;
+  padding: 40px 34px 34px 34px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
 }
 .login-avatar {
   width: 72px;
@@ -656,7 +893,7 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 .login-btn {
   width: 100%;
