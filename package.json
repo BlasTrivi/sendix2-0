@@ -7,9 +7,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "prestart": "node scripts/ensure-db-push.cjs",
+    "prestart": "node scripts/role-to-micarga.cjs && node scripts/ensure-db-push.cjs",
     "start": "node dist/server.js",
     "start:node": "node --import tsx src/server.ts",
+    "fix:roles": "node scripts/fix-role-mismatch.cjs",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "postinstall": "prisma generate || echo prisma generate skipped"

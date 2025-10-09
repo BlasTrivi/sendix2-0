@@ -53,7 +53,7 @@ app.get("/reset-password", (_req, res) => {
 
 // ---- API ----
 // ---- Auth (opcional) ----
-type JwtUser = { id: string; email: string; name: string; role: 'empresa'|'transportista'|'sendix' };
+type JwtUser = { id: string; email: string; name: string; role: 'empresa'|'transportista'|'micarga' };
 declare global {
   namespace Express { interface Request { user?: JwtUser | null; } }
 }
@@ -91,8 +91,9 @@ function decodeAuth(req: express.Request, _res: express.Response, next: express.
       if(fromCookie && typeof fromCookie === 'string') token = fromCookie;
     }
     if(token){
-      const payload = jwt.verify(token, JWT_SECRET) as JwtUser;
-      req.user = payload;
+      const payload = jwt.verify(token, JWT_SECRET) as JwtUser | (JwtUser & { role: any });
+      if(payload && (payload as any).role === 'sendix') (payload as any).role = 'micarga';
+      req.user = payload as JwtUser;
     } else req.user = null;
   }catch{ req.user = null; }
   next();
@@ -554,7 +555,7 @@ app.patch('/api/proposals/:id', async (req, res) => {
     const id = String(req.params.id);
     const existing = await prisma.proposal.findUnique({ where: { id }, include: { load: true } });
     if(!existing) return res.status(404).json({ error: 'Not found' });
-  // Autorización: sólo MICARGA (rol interno 'sendix'), la empresa dueña de la load o el transportista asignado
+  // Autorización: sólo MICARGA (rol interno 'micarga'), la empresa dueña de la load o el transportista asignado
     if(!userCanAccessProposal(req.user, { load: { ownerId: existing.load.ownerId }, carrierId: existing.carrierId })){
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -562,7 +563,7 @@ app.patch('/api/proposals/:id', async (req, res) => {
     // Reglas de negocio: limitar quién puede cambiar cada campo
     const updateData: any = {};
     if(typeof data.vehicle !== 'undefined' || typeof data.price !== 'undefined'){
-  // Sólo transportista (carrier) o admin MICARGA (rol interno 'sendix') pueden ajustar vehicle/price
+  // Sólo transportista (carrier) o admin MICARGA (rol interno 'micarga') pueden ajustar vehicle/price
       if(req.user.role === 'transportista' && req.user.id !== existing.carrierId){
         return res.status(403).json({ error: 'No autorizado a editar vehicle/price' });
       }
@@ -574,15 +575,15 @@ app.patch('/api/proposals/:id', async (req, res) => {
       }
     }
     if(typeof data.shipStatus !== 'undefined'){
-  // Transportista (dueño), empresa dueña o admin MICARGA (rol interno 'sendix') pueden avanzar shipStatus
-      if(!(req.user.role === 'sendix' || (req.user.role === 'transportista' && req.user.id === existing.carrierId) || (req.user.role === 'empresa' && req.user.id === existing.load.ownerId))){
+  // Transportista (dueño), empresa dueña o admin MICARGA (rol interno 'micarga') pueden avanzar shipStatus
+  if(!(req.user.role === 'micarga' || (req.user.role === 'transportista' && req.user.id === existing.carrierId) || (req.user.role === 'empresa' && req.user.id === existing.load.ownerId))){
         return res.status(403).json({ error: 'No autorizado a cambiar shipStatus' });
       }
       updateData.shipStatus = data.shipStatus as any;
     }
     if(typeof data.status !== 'undefined'){
   // status se gestiona por endpoints dedicados (filter/reject/select) – bloquear aquí salvo admin MICARGA
-      if(req.user.role !== 'sendix'){
+  if(req.user.role !== 'micarga'){
         return res.status(403).json({ error: 'No autorizado a cambiar status directamente' });
       }
       updateData.status = data.status;
@@ -639,7 +640,7 @@ app.patch('/api/proposals/:id', async (req, res) => {
 });
 
 // Moderación rápida: filtrar
-app.post('/api/proposals/:id/filter', requireRole('sendix'), async (req, res) => {
+app.post('/api/proposals/:id/filter', requireRole('micarga'), async (req, res) => {
   try{
     const id = String(req.params.id);
     const upd = await prisma.proposal.update({ where: { id }, data: { status: 'filtered' } });
@@ -648,7 +649,7 @@ app.post('/api/proposals/:id/filter', requireRole('sendix'), async (req, res) =>
 });
 
 // Rechazar
-app.post('/api/proposals/:id/reject', requireRole('sendix'), async (req, res) => {
+app.post('/api/proposals/:id/reject', requireRole('micarga'), async (req, res) => {
   try{
     const id = String(req.params.id);
     const upd = await prisma.proposal.update({ where: { id }, data: { status: 'rejected' } });
@@ -713,7 +714,7 @@ async function ensureThreadForProposal(proposalId: string){
 
 function userCanAccessProposal(u: JwtUser | null | undefined, p: { load: { ownerId: string }, carrierId: string }){
   if(!u) return false;
-  if(u.role === 'sendix') return true;
+  if(u.role === 'micarga') return true;
   if(u.role === 'empresa') return u.id === p.load.ownerId;
   if(u.role === 'transportista') return u.id === p.carrierId;
   return false;
@@ -827,7 +828,7 @@ app.get('/api/chat/unread', async (req, res) => {
     if(!req.user) return res.status(401).json({ error: 'Auth required' });
     // Buscar threads relevantes según rol
     let proposals: any[] = [];
-    if(req.user.role === 'sendix'){
+  if(req.user.role === 'micarga'){
       proposals = await prisma.proposal.findMany({ where: { status: 'approved' }, select: { id:true, loadId:true, carrierId:true, thread: { select: { id:true } } } });
     } else if(req.user.role === 'empresa'){
       proposals = await prisma.proposal.findMany({ where: { status: 'approved', load: { ownerId: req.user.id } }, select: { id:true, loadId:true, carrierId:true, thread: { select: { id:true } } } });
@@ -903,12 +904,12 @@ app.patch('/api/commissions/:id', async (req, res) => {
   }
 });
 
-// ---- API: Users (admin MICARGA, rol interno 'sendix') ----
-app.get('/api/users', requireRole('sendix'), async (req, res) => {
+// ---- API: Users (admin MICARGA, rol interno 'micarga') ----
+app.get('/api/users', requireRole('micarga'), async (req, res) => {
   try{
     const { role, q, cargas, vehiculos, seguroOk, senasa, imo, alcance } = req.query as Record<string,string>;
     const where:any = {};
-    if(role && ['sendix','empresa','transportista'].includes(role)) where.role = role;
+  if(role && ['micarga','empresa','transportista'].includes(role)) where.role = role;
     if(q && String(q).trim()){
       const s = String(q).trim();
       where.OR = [
@@ -981,30 +982,30 @@ async function shutdown(signal: string) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// --- Bootstrap: crear admin MICARGA si hay variables configuradas (rol interno 'sendix') ---
-async function ensureSendixAdmin(){
+// --- Bootstrap: crear admin MICARGA si hay variables configuradas (rol interno 'micarga') ---
+async function ensureMicargaAdmin(){
   try{
-    const email = (process.env.SENDIX_ADMIN_EMAIL||'').toLowerCase().trim();
-    const password = process.env.SENDIX_ADMIN_PASSWORD||'';
-  const name = process.env.SENDIX_ADMIN_NAME || 'Nexo MICARGA';
+    const email = (process.env.MICARGA_ADMIN_EMAIL || process.env.SENDIX_ADMIN_EMAIL || '').toLowerCase().trim();
+    const password = process.env.MICARGA_ADMIN_PASSWORD || process.env.SENDIX_ADMIN_PASSWORD || '';
+    const name = process.env.MICARGA_ADMIN_NAME || process.env.SENDIX_ADMIN_NAME || 'Nexo MICARGA';
     if(!email || !password){
-  console.log('ℹ️ SENDIX_ADMIN_EMAIL/PASSWORD no configurados: omitiendo bootstrap de admin MICARGA');
+      console.log('ℹ️ MICARGA_ADMIN_EMAIL/PASSWORD no configurados (ni legacy SENDIX_*): omitiendo bootstrap de admin MICARGA');
       return;
     }
     const existing = await prisma.usuario.findUnique({ where: { email } });
     if(existing){
-      if(existing.role !== 'sendix'){
-        await prisma.usuario.update({ where: { id: existing.id }, data: { role: 'sendix' } });
-  console.log('✅ Usuario existente marcado como rol administrador (sendix) para MICARGA:', email);
+      if((existing.role as any) !== 'micarga'){
+        await prisma.usuario.update({ where: { id: existing.id }, data: { role: 'micarga' as any } });
+        console.log('✅ Usuario existente marcado como rol administrador (micarga) para MICARGA:', email);
       } else {
-  console.log('ℹ️ Admin MICARGA ya existe:', email);
+        console.log('ℹ️ Admin MICARGA ya existe:', email);
       }
       return;
     }
     const hash = await bcrypt.hash(password, 10);
-    await prisma.usuario.create({ data: { email, name, role: 'sendix', passwordHash: hash } });
-  console.log('✅ Admin MICARGA creado:', email);
+    await prisma.usuario.create({ data: { email, name, role: 'micarga' as any, passwordHash: hash } });
+    console.log('✅ Admin MICARGA creado:', email);
   }catch(err){ console.error('Error creando admin MICARGA:', err); }
 }
 
-(async()=>{ await ensureSendixAdmin(); })();
+(async()=>{ await ensureMicargaAdmin(); })();

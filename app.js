@@ -2,8 +2,8 @@
   MICARGA — app.js (comentado)
    ---------------------------------------------------------------------
    - SPA sin framework: rutas por hash, estado en LocalStorage
-   - Roles: empresa, transportista, sendix (nexo)
-   - Módulos: navegación, auth, empresa, transportista, sendix, chat, tracking
+  - Roles: empresa, transportista, micarga (nexo)
+  - Módulos: navegación, auth, empresa, transportista, micarga, chat, tracking
    - Cada función tiene responsabilidad única y renderiza su vista
    ===================================================================== */
 // Guard defensivo: algunas versiones minificadas o integraciones externas podrían
@@ -244,7 +244,7 @@ function scheduleNavUnreadRefresh(delay=200){
 // Thread helpers by role
 function threadsForCurrentUser(){
   if(!state.user) return [];
-  if(state.user.role==='sendix'){
+  if(state.user.role==='micarga'){
     return state.proposals.filter(p=>p.status==='approved');
   }
   if(state.user.role==='empresa'){
@@ -281,10 +281,10 @@ function navigate(route){
   if(route==='ofertas'){ try{ requireRole('transportista'); renderOffers(); }catch(e){} }
   if(route==='mis-postulaciones'){ try{ requireRole('transportista'); renderMyProposals(); }catch(e){} }
   if(route==='mis-envios'){ try{ requireRole('transportista'); renderShipments(); }catch(e){} }
-  if(route==='moderacion'){ try{ requireRole('sendix'); renderInbox(); }catch(e){} }
+  if(route==='moderacion'){ try{ requireRole('micarga'); renderInbox(); }catch(e){} }
   if(route==='conversaciones'){ renderThreads(); renderChat(); }
-  if(route==='resumen'){ try{ requireRole('sendix'); renderMetrics(); }catch(e){} }
-  if(route==='usuarios'){ try{ requireRole('sendix'); renderUsers(); }catch(e){} }
+  if(route==='resumen'){ try{ requireRole('micarga'); renderMetrics(); }catch(e){} }
+  if(route==='usuarios'){ try{ requireRole('micarga'); renderUsers(); }catch(e){} }
   if(route==='perfil'){ renderProfile(); }
   if(route==='tracking') renderTracking();
   if(route==='conversaciones') reflectMobileChatState(); else document.body.classList.remove('chat-has-active');
@@ -317,7 +317,7 @@ function initNav(){
     }
   });
   document.getElementById('btn-start')?.addEventListener('click', ()=>{
-    const r = state.user?.role==='empresa' ? 'publicar' : state.user?.role==='transportista' ? 'ofertas' : state.user?.role==='sendix' ? 'moderacion' : 'login';
+    const r = state.user?.role==='empresa' ? 'publicar' : state.user?.role==='transportista' ? 'ofertas' : state.user?.role==='micarga' ? 'moderacion' : 'login';
     navigate(r);
   });
   window.addEventListener('hashchange', ()=>navigate(location.hash.replace('#','')||'login'));
@@ -466,7 +466,7 @@ function updateChrome(){
   document.getElementById('open-profile')?.addEventListener('click', ()=> navigate('perfil'));
   document.getElementById('nav-empresa')?.classList.toggle('visible', state.user?.role==='empresa');
   document.getElementById('nav-transportista')?.classList.toggle('visible', state.user?.role==='transportista');
-  document.getElementById('nav-sendix')?.classList.toggle('visible', state.user?.role==='sendix');
+  document.getElementById('nav-micarga')?.classList.toggle('visible', state.user?.role==='micarga');
   // Recalcular altura de la barra inferior cuando cambie la visibilidad por rol
   updateBottomBarHeight();
 }
@@ -484,15 +484,15 @@ async function fetchAdminUsers(params={}){
   }catch{ return []; }
 }
 
-// PERFIL propio o de terceros (solo SENDIX)
+// PERFIL propio o de terceros (solo MICARGA)
 async function renderProfile(emailToView){
-  const isSendix = state.user?.role==='sendix';
+  const isMicarga = state.user?.role==='micarga';
   const title = document.getElementById('profile-title');
   const back = document.getElementById('profile-back');
   const saveBtn = document.getElementById('profile-save');
   const form = document.getElementById('profile-form');
   if(!form) return;
-  // Política revisada: MICARGA (rol interno sendix) puede ver otros perfiles (solo lectura) y su propio perfil en vista mínima.
+  // Política revisada: MICARGA (rol interno micarga) puede ver otros perfiles (solo lectura) y su propio perfil en vista mínima.
   const rawEmail = (emailToView || form.dataset.viewEmail || state.user?.email || '');
   const email = rawEmail.toLowerCase();
   const selfEmail = String(state.user?.email||'').toLowerCase();
@@ -516,8 +516,8 @@ async function renderProfile(emailToView){
   if(back) back.onclick = ()=>{ if(viewingOther) navigate('usuarios'); else navigate('home'); };
   // Renderizar campos según rol
   const role = me.role||'empresa';
-  // Vista mínima solo cuando el usuario activo de rol sendix ve su propio perfil
-  if(role==='sendix' && isSendix && isSelf){
+  // Vista mínima solo cuando el usuario activo de rol micarga ve su propio perfil
+  if(role==='micarga' && isMicarga && isSelf){
     if(title) title.textContent = 'Mi perfil';
     if(saveBtn) saveBtn.style.display = 'none';
     if(back) back.onclick = ()=> navigate('home');
@@ -528,7 +528,7 @@ async function renderProfile(emailToView){
       + `</div>`;
     return;
   }
-  // Si se está viendo otro perfil (por sendix u otro flujo) ocultar botón guardar
+  // Si se está viendo otro perfil (por micarga u otro flujo) ocultar botón guardar
   if(saveBtn) saveBtn.style.display = viewingOther ? 'none' : '';
   function inputRow(label, name, value='', type='text', attrs=''){
     const dis = viewingOther ? 'disabled' : '';
@@ -619,7 +619,7 @@ async function renderProfile(emailToView){
   }
 }
 
-// Vista de usuarios (solo SENDIX)
+// Vista de usuarios (solo MICARGA)
 async function renderUsers(){
   const ul = document.getElementById('users-list');
   const empty = document.getElementById('users-empty');
@@ -719,7 +719,8 @@ function getApiBase(){
     const params = new URLSearchParams(location.search);
     const qp = params.get('api');
     if(qp){ return qp; }
-    if(typeof window!=='undefined' && window.SENDIX_API_BASE){ return String(window.SENDIX_API_BASE); }
+  // Compatibilidad con variable legacy de entorno
+  if(typeof window!=='undefined' && window.SENDIX_API_BASE){ return String(window.SENDIX_API_BASE); }
     return location.origin;
   }catch{ return location.origin; }
 }
@@ -1676,7 +1677,7 @@ function notifyDelivered(proposal){
   const l = state.loads.find(x=>x.id===proposal.loadId);
   const threadId = threadIdFor(proposal);
   const text = `🚚 Entrega confirmada: ${l?.origen||''} → ${l?.destino||''} por ${proposal.carrier}.`;
-  state.messages.push({ threadId, from: 'Sistema', role: 'sendix', text, ts: Date.now() });
+  state.messages.push({ threadId, from: 'Sistema', role: 'micarga', text, ts: Date.now() });
   save();
   // Actualizar badges si el usuario está viendo conversaciones
   const currentRoute = location.hash.replace('#','')||'home';
@@ -2290,7 +2291,7 @@ function renderTracking(){
     const myLoadIds = state.loads.filter(l=>l.owner===state.user.name).map(l=>l.id);
     options = state.proposals.filter(p=>myLoadIds.includes(p.loadId) && p.status==='approved');
     hint.textContent = options.length ? 'Vista de estado. Solo lectura.' : 'No hay envíos aprobados aún.';
-  } else if(state.user?.role==='sendix'){
+  } else if(state.user?.role==='micarga'){
     options = state.proposals.filter(p=>p.status==='approved');
     hint.textContent = options.length ? 'Vista de nexo. Solo lectura.' : 'No hay envíos aprobados.';
   }
@@ -2479,7 +2480,7 @@ function renderTracking(){
 function renderHome(){
   // sincronizar en segundo plano para actualizar badges
   (async()=>{ try{ await syncProposalsFromAPI(); }catch{} })();
-  if(state.user?.role==='sendix'){
+  if(state.user?.role==='micarga'){
     (async()=>{
       const threads = state.proposals.filter(p=>p.status==='approved');
       const { total } = await getUnreadMapForProposals(threads);
@@ -2488,7 +2489,7 @@ function renderHome(){
   }
   document.getElementById('cards-empresa').style.display = state.user?.role==='empresa' ? 'grid' : 'none';
   document.getElementById('cards-transportista').style.display = state.user?.role==='transportista' ? 'grid' : 'none';
-  document.getElementById('cards-sendix').style.display = state.user?.role==='sendix' ? 'grid' : 'none';
+  document.getElementById('cards-micarga').style.display = state.user?.role==='micarga' ? 'grid' : 'none';
 
   // Badges por rol
   if(state.user?.role==='empresa'){
@@ -2511,11 +2512,11 @@ function renderHome(){
     setBadgeValue('badge-transp-mis-envios', misEnvios);
     setBadgeValue('badge-transp-tracking', trackingActivos);
   }
-  if(state.user?.role==='sendix'){
+  if(state.user?.role==='micarga'){
     const moderacion = state.proposals.filter(p=>p.status==='pending').length;
     const threads = state.proposals.filter(p=>p.status==='approved');
-    const b1 = document.getElementById('badge-sendix-moderacion');
-    const b2 = document.getElementById('badge-sendix-conversaciones');
+    const b1 = document.getElementById('badge-micarga-moderacion');
+    const b2 = document.getElementById('badge-micarga-conversaciones');
     (async()=>{
       const { total } = await getUnreadMapForProposals(threads);
       if(b2) setBadgeValue(b2, total);
