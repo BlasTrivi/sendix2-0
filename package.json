@@ -11,6 +11,7 @@
     "start": "node dist/server.js",
     "start:node": "node --import tsx src/server.ts",
     "fix:roles": "node scripts/fix-role-mismatch.cjs",
+    "wipe:db": "node scripts/wipe-demo-data.cjs",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "postinstall": "prisma generate || echo prisma generate skipped"
