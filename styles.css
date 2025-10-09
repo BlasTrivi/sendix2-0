@@ -399,6 +399,9 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  height: var(--chat-h); /* altura controlada: solo chat-box scrollea */
 }
 .chat-panel .chat-main-header{
   background: var(--chat-header-bg);
@@ -408,6 +411,7 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: static; /* fijo dentro del panel, sin sticky */
 }
 .chat-panel .chat-main-left h3#chat-title{
   margin: 0;
@@ -430,6 +434,8 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
   gap: 8px;
   padding: 16px;
   min-height: 0;
+  flex: 1 1 auto;          /* ocupa todo el espacio disponible */
+  overflow: auto;          /* único contenedor scrollable */
 }
 
 /* Burbujas de chat */
@@ -496,8 +502,7 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 
 /* Input de chat */
 .chat-input{
-  position: sticky;
-  bottom: 0;
+  position: static; /* fijo al fondo del panel, no scrollea */
   background: linear-gradient(180deg, rgba(255,255,255,.86), #fff);
   backdrop-filter: blur(8px);
   border-top: 1px solid var(--border);
@@ -564,6 +569,8 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
   .bubble{ max-width: 85%; }
 }
 @media (max-width: 600px){
+  /* En móviles, encajar el panel en viewport descontando la barra inferior */
+  .chat-panel{ height: calc(100vh - var(--bbar-h) - 24px); }
   .chat-panel .chat-main-header{ padding: 10px 12px; }
   .chat-panel .chat-box.big{ padding: 10px; gap: 6px; }
   .bubble{ max-width: 92%; padding: 10px 12px; }
