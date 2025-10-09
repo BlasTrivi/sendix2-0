@@ -468,6 +468,13 @@ app.patch('/api/loads/:id', requireRole('empresa'), async (req, res) => {
 app.delete('/api/loads/:id', requireRole('empresa'), async (req, res) => {
   try {
     const id = String(req.params.id);
+    if(!req.user) return res.status(401).json({ error: 'Auth required' });
+    const load = await prisma.load.findUnique({ where: { id } });
+    if(!load) return res.status(404).json({ error: 'Not found' });
+    if(load.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+    // Opcional: bloquear si hay una propuesta aprobada asociada
+    const approvedCount = await prisma.proposal.count({ where: { loadId: id, status: 'approved' } });
+    if(approvedCount > 0) return res.status(400).json({ error: 'No se puede eliminar una carga con propuesta aprobada' });
     await prisma.load.delete({ where: { id } });
     res.json({ ok: true });
   } catch (err) {

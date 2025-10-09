@@ -787,6 +787,11 @@ const API = {
     }
     return res.json();
   },
+  async deleteLoad(id){
+    const res = await fetch(`${API.base}/api/loads/${id}`, { method:'DELETE', headers: { ...authHeaders() }, credentials: 'include' });
+    if(!res.ok) throw new Error(await parseErr(res));
+    return res.json();
+  },
   async listProposals(params={}){
     const p = new URLSearchParams();
     Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
@@ -1267,8 +1272,16 @@ async function renderMyLoadsWithProposals(focus){
         <div class="muted" style="flex-basis:100%">${lastMsg ? 'Último: '+new Date(lastMsg.ts).toLocaleString()+' · '+escapeHtml(lastMsg.from)+': '+escapeHtml(lastMsg.text) : 'Aún sin chat (se habilita al seleccionar).'}</div>
       </li>`;
   }).join('') : (showFiltered ? '<li class="muted">Sin propuestas filtradas por MICARGA aún.</li>' : '');
+    const canDeleteLoad = state.user?.role==='empresa' && !approved;
     return `<li id="load-${l.id}">
-      <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
+      <div class="row">
+        <strong>${l.origen} ➜ ${l.destino}</strong>
+        <span>${new Date(l.createdAt).toLocaleDateString()}</span>
+      </div>
+      <div class="row" style="gap:8px; align-items:center; margin-top:4px;">
+        <span class="muted">ID: ${l.id.slice(0,6)}…</span>
+        <button class="btn" data-del-load="${l.id}" ${canDeleteLoad?'' : 'disabled title="No disponible si hay propuesta aprobada"'}>Eliminar carga</button>
+      </div>
       <div class="muted">Tipo: ${l.tipo} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')}</div>
       ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>4? `<span class="muted">+${l.adjuntos.length-4} más</span>`:''}</div>`:''}
@@ -1303,6 +1316,23 @@ async function renderMyLoadsWithProposals(focus){
   // Acciones sobre envío aprobado (chat / ver envío)
   ul.querySelectorAll('[data-approved-chat]')?.forEach(b=> b.addEventListener('click', ()=> openChatByProposalId(b.dataset.approvedChat)));
   ul.querySelectorAll('[data-approved-track]')?.forEach(b=> b.addEventListener('click', ()=>{ state.activeShipmentProposalId = b.dataset.approvedTrack; save(); navigate('tracking'); }));
+  // Eliminar carga (si no tiene propuesta aprobada)
+  ul.querySelectorAll('[data-del-load]')?.forEach(b=> b.addEventListener('click', ()=>{
+    const id = b.dataset.delLoad;
+    const hasApproved = state.proposals.some(p=>p.loadId===id && p.status==='approved');
+    if(hasApproved){ alert('No podés eliminar una carga que ya tiene una propuesta aprobada.'); return; }
+    if(!confirm('¿Eliminar esta carga? Esta acción no se puede deshacer.')) return;
+    (async()=>{
+      try{
+        await API.deleteLoad(id);
+        await syncLoadsFromAPI();
+      }catch{
+        state.loads = state.loads.filter(x=>x.id!==id); save();
+      }
+      renderMyLoadsWithProposals();
+      alert('Carga eliminada');
+    })();
+  }));
   // Eliminar propuesta (solo filtrada/pending y no aprobada)
   ul.querySelectorAll('[data-prop-del]')?.forEach(b=> b.addEventListener('click', ()=>{
     const id = b.dataset.propDel;
