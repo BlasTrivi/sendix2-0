@@ -48,8 +48,8 @@ Plataforma logística full‑stack que conecta Empresas y Transportistas con un 
 
 ## 🧬 Modelos clave (Prisma)
 
-* Usuario (roles: empresa, transportista, sendix)  
-  (El identificador interno del rol administrador sigue siendo 'sendix' para compatibilidad, aunque la marca visible es MICARGA.)
+* Usuario (roles: empresa, transportista, micarga)
+  (El rol administrador interno ahora es 'micarga'. Se aceptan tokens legados con 'sendix' y se normalizan a 'micarga' en backend.)
 * Load (carga publicada por empresa)
 * Proposal (propuesta del transportista + estado de moderación + shipStatus)
 * Thread (1‑1 con Proposal aprobada; compone el chat)
@@ -67,7 +67,7 @@ Plataforma logística full‑stack que conecta Empresas y Transportistas con un 
 3. Configurar `.env` mínimo:
 
 ```
-DATABASE_URL=postgresql://user:pass@localhost:5432/sendix?schema=public
+DATABASE_URL=postgresql://user:pass@localhost:5432/micarga?schema=public
 JWT_SECRET=dev-secret
 CORS_ORIGIN=http://localhost:4000
 APP_BASE_URL=http://localhost:4000
@@ -112,7 +112,7 @@ La variable `DATABASE_URL` ya apunta al servicio interno `db`.
 * Logout: `/api/auth/logout` (borra cookie).
 * `GET /api/me` entrega usuario actual (o `null`).
 * Cookie: httpOnly, SameSite derivado de `COOKIE_SAMESITE` o `none` si hay CORS_ORIGIN.
-* Admin MICARGA opcional se autogenera si se definen `SENDIX_ADMIN_EMAIL` y `SENDIX_ADMIN_PASSWORD` (variables mantienen prefijo histórico para compatibilidad).
+* Admin MICARGA opcional se autogenera si se definen `MICARGA_ADMIN_EMAIL` y `MICARGA_ADMIN_PASSWORD` (o sus equivalentes legacy `SENDIX_*` por compatibilidad).
 
 ### Variables relevantes
 
@@ -123,7 +123,7 @@ La variable `DATABASE_URL` ya apunta al servicio interno `db`.
 | CORS_ORIGIN | Lista separada por comas de orígenes permitidos |
 | COOKIE_SAMESITE | lax | none | strict (auto none si hay CORS_ORIGIN) |
 | JWT_SECRET / JWT_ACCESS_SECRET | Clave firma JWT |
-| SENDIX_ADMIN_EMAIL / PASSWORD / NAME | Bootstrap usuario rol admin (sendix) |
+| MICARGA_ADMIN_EMAIL / PASSWORD / NAME | Bootstrap usuario rol admin (micarga). También se aceptan SENDIX_* por compatibilidad |
 | APP_BASE_URL | Base absoluta para construir links de reset |
 | SMTP_HOST / SMTP_PORT | Servidor SMTP fallback |
 | SMTP_USER / SMTP_PASS | Credenciales SMTP |
@@ -189,7 +189,7 @@ Mensajes incluyen: id, text, createdAt, from { id, name, role }, replyToId, atta
 | POST | /api/proposals | Crear propuesta (transportista) |
 | GET  | /api/proposals | Listar propuestas (filtros) |
 | POST | /api/proposals/:id/select | Aprobar (empresa) |
-| POST | /api/proposals/:id/filter | Marcar filtered (sendix) |
+| POST | /api/proposals/:id/filter | Marcar filtered (micarga) |
 | POST | /api/proposals/:id/reject | Rechazar |
 | PATCH| /api/proposals/:id | Actualizar campos permitidos |
 | GET  | /api/proposals/:id/messages | Mensajes chat |
@@ -239,7 +239,7 @@ Post‑install genera el Prisma Client automáticamente (ignora error si no hay 
 El `Dockerfile` genera una imagen multi‑stage (build + runtime Alpine):
 
 ```
-docker build -t micarga .  # (podés seguir usando 'sendix' si ya existe la imagen)
+docker build -t micarga .
 docker run -p 4000:4000 --env-file .env micarga
 ```
 
