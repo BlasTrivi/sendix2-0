@@ -787,11 +787,6 @@ const API = {
     }
     return res.json();
   },
-  async deleteLoad(id){
-    const res = await fetch(`${API.base}/api/loads/${id}`, { method:'DELETE', headers: { ...authHeaders() }, credentials: 'include' });
-    if(!res.ok) throw new Error(await parseErr(res));
-    return res.json();
-  },
   async listProposals(params={}){
     const p = new URLSearchParams();
     Object.entries(params).forEach(([k,v])=>{ if(v!=null && v!=='') p.set(k,String(v)); });
@@ -822,11 +817,6 @@ const API = {
   async rejectProposal(id){
   const res = await fetch(`${API.base}/api/proposals/${id}/reject`, { method:'POST', headers: { ...authHeaders() }, credentials: 'include' });
     if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  },
-  async deleteProposal(id){
-    const res = await fetch(`${API.base}/api/proposals/${id}`, { method:'DELETE', headers: { ...authHeaders() }, credentials: 'include' });
-    if(!res.ok) throw new Error(await parseErr(res));
     return res.json();
   },
   async getCommissions(params={}){
@@ -1010,7 +1000,7 @@ async function renderLoads(onlyMine=false){
   await syncLoadsFromAPI();
   const ul = document.getElementById('loads-list');
   const data = onlyMine ? state.loads.filter(l=>l.owner===state.user?.name) : state.loads;
-    ul.innerHTML = data.length ? data.map(l=> `
+  ul.innerHTML = data.length ? data.map(l=>`
     <li>
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       <div class="muted">Tipo: ${l.tipo} ${l.meta?.containerTipo? '· Cont: '+l.meta.containerTipo:''} ${l.meta?.producto? '· Prod: '+l.meta.producto:''} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')} · Por: ${l.owner}</div>
@@ -1267,21 +1257,12 @@ async function renderMyLoadsWithProposals(focus){
           <span class="badge">Filtrada por MICARGA</span>
           <span class="muted">Total</span> <strong>$${totalForCompany(p.price).toLocaleString('es-AR')}</strong>
           <button class="btn btn-primary" data-select-win="${p.id}">Seleccionar</button>
-          <button class="btn" data-prop-del="${p.id}">Eliminar</button>
         </div>
         <div class="muted" style="flex-basis:100%">${lastMsg ? 'Último: '+new Date(lastMsg.ts).toLocaleString()+' · '+escapeHtml(lastMsg.from)+': '+escapeHtml(lastMsg.text) : 'Aún sin chat (se habilita al seleccionar).'}</div>
       </li>`;
   }).join('') : (showFiltered ? '<li class="muted">Sin propuestas filtradas por MICARGA aún.</li>' : '');
-    const canDeleteLoad = state.user?.role==='empresa' && !approved;
     return `<li id="load-${l.id}">
-      <div class="row">
-        <strong>${l.origen} ➜ ${l.destino}</strong>
-        <span>${new Date(l.createdAt).toLocaleDateString()}</span>
-      </div>
-      <div class="row" style="gap:8px; align-items:center; margin-top:4px;">
-        <span class="muted">ID: ${l.id.slice(0,6)}…</span>
-        <button class="btn" data-del-load="${l.id}" ${canDeleteLoad?'' : 'disabled title="No disponible si hay propuesta aprobada"'}>Eliminar carga</button>
-      </div>
+      <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       <div class="muted">Tipo: ${l.tipo} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')}</div>
       ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>4? `<span class="muted">+${l.adjuntos.length-4} más</span>`:''}</div>`:''}
@@ -1316,43 +1297,6 @@ async function renderMyLoadsWithProposals(focus){
   // Acciones sobre envío aprobado (chat / ver envío)
   ul.querySelectorAll('[data-approved-chat]')?.forEach(b=> b.addEventListener('click', ()=> openChatByProposalId(b.dataset.approvedChat)));
   ul.querySelectorAll('[data-approved-track]')?.forEach(b=> b.addEventListener('click', ()=>{ state.activeShipmentProposalId = b.dataset.approvedTrack; save(); navigate('tracking'); }));
-  // Eliminar carga (si no tiene propuesta aprobada)
-  ul.querySelectorAll('[data-del-load]')?.forEach(b=> b.addEventListener('click', ()=>{
-    const id = b.dataset.delLoad;
-    const hasApproved = state.proposals.some(p=>p.loadId===id && p.status==='approved');
-    if(hasApproved){ alert('No podés eliminar una carga que ya tiene una propuesta aprobada.'); return; }
-    if(!confirm('¿Eliminar esta carga? Esta acción no se puede deshacer.')) return;
-    (async()=>{
-      try{
-        await API.deleteLoad(id);
-        await syncLoadsFromAPI();
-      }catch{
-        state.loads = state.loads.filter(x=>x.id!==id); save();
-      }
-      renderMyLoadsWithProposals();
-      alert('Carga eliminada');
-    })();
-  }));
-  // Eliminar propuesta (solo filtrada/pending y no aprobada)
-  ul.querySelectorAll('[data-prop-del]')?.forEach(b=> b.addEventListener('click', ()=>{
-    const id = b.dataset.propDel;
-    const p = state.proposals.find(x=>x.id===id);
-    if(!p) return;
-    if(p.status==='approved'){ alert('No podés eliminar una propuesta aprobada.'); return; }
-    if(!confirm('¿Eliminar esta propuesta? Esta acción no se puede deshacer.')) return;
-    (async()=>{
-      try{
-        await API.deleteProposal(id);
-        await syncProposalsFromAPI();
-      }catch(err){
-        // Fallback local
-        state.proposals = state.proposals.filter(x=>x.id!==id);
-        save();
-      }
-      renderMyLoadsWithProposals();
-      alert('Propuesta eliminada');
-    })();
-  }));
 }
 
 // TRANSPORTISTA
@@ -1450,7 +1394,7 @@ function renderShipments(){
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
-  <div class="muted">Cliente: ${l?.owner} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · ${state.user?.role==='empresa' ? `Total: $${totalForCompany(p.price).toLocaleString('es-AR')}` : `Precio: $${p.price.toLocaleString('es-AR')}`}</div>
+      <div class="muted">Cliente: ${l?.owner} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Precio: $${p.price.toLocaleString('es-AR')}</div>
       <div class="row">
         <select data-ship="${p.id}">
           ${SHIP_STEPS.map(s=>`<option value="${s}" ${s===(p.shipStatus||'pendiente')?'selected':''}>${s}</option>`).join('')}
@@ -1648,15 +1592,11 @@ function renderThreads(){
       const title = `${l?.origen||'?'} → ${l?.destino||'?'}`;
       const unread = unreadMap[p.id]?.unread || 0;
       const lastTs = unreadMap[p.id]?.lastMessageAt ? new Date(unreadMap[p.id].lastMessageAt).getTime() : (p.createdAt ? new Date(p.createdAt).getTime() : 0);
-      // Mostrar total para empresa y precio del transportista para transportista/micarga
-      const isEmpresa = state.user?.role === 'empresa';
-      const priceValue = (typeof p.price === 'number') ? (isEmpresa ? totalForCompany(p.price) : p.price) : null;
-      const priceLabel = isEmpresa ? 'Total' : 'Precio';
       const subParts = [
         `Empresa: ${l?.owner||'-'}`,
         `Transportista: ${p.carrier||'-'}`,
         `Vehículo: ${p.vehicle||'-'}`,
-        `${priceLabel}: ${priceValue!==null? ('$'+priceValue.toLocaleString('es-AR')):'-'}`
+        `Precio: ${typeof p.price==='number'? ('$'+p.price.toLocaleString('es-AR')):'-'}`
       ];
       const sub = subParts.join(' · ');
       const match = (title+' '+sub).toLowerCase().includes(q);
