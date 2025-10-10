@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MICARGA</title>
   <meta name="theme-color" content="#0E2F44" />
-  <link rel="stylesheet" href="styles.css?v=20251004"/>
+  <link rel="stylesheet" href="styles.css?v=20251010"/>
   <link rel="icon" href="assets/logo.png">
 </head>
 <body>
@@ -460,13 +460,13 @@
         <div id="threads-cards" class="cards cards-chats"></div>
         <div id="chat-area" class="chat-area" style="display:none; margin-top:18px">
           <div class="chat-panel shadow-md">
-            <div class="chat-main-header" style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
-              <div class="chat-main-left" style="flex:1 1 auto; min-width:240px;">
+            <div class="chat-main-header" style="display:flex; gap:8px; align-items:center; flex-wrap:nowrap;">
+              <div class="chat-main-left" style="flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:8px;">
                 <button class="btn btn-ghost chat-back" id="chat-back" title="Volver" style="display:none">← Volver</button>
-                <h3 id="chat-title" style="margin:4px 0 2px">Elegí una conversación</h3>
-                <p class="muted" id="chat-topic"></p>
+                <h3 id="chat-title" style="margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Elegí una conversación</h3>
+                <p class="muted" id="chat-topic" style="display:none"></p>
               </div>
-              <div class="chat-main-actions" style="display:flex; gap:8px; align-items:center;">
+              <div class="chat-main-actions" style="display:flex; gap:8px; align-items:center; flex:0 0 auto;">
                 <button class="btn" id="open-related-tracking">Ver envío</button>
               </div>
             </div>
@@ -647,6 +647,6 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=20251004"></script>
+  <script src="app.js?v=20251010"></script>
 </body>
 </html>

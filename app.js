@@ -2075,8 +2075,9 @@ function renderChat(){
   const p = state.proposals.find(x=>threadIdFor(x)===state.activeThread);
   if(!p){ box.innerHTML='<div class="muted">Conversación no disponible.</div>'; return; }
   const l = state.loads.find(x=>x.id===p.loadId);
+  // Mostrar solo origen → destino en el encabezado del chat
   title.textContent = `${l.origen} → ${l.destino}`;
-  topic.textContent = `Empresa: ${l.owner} · Transportista: ${p.carrier} · Dimensiones: ${l.dimensiones||'-'} · Nexo: MICARGA`;
+  if(topic){ topic.textContent = ''; topic.style.display = 'none'; }
   // Sincronizar mensajes del backend para esta propuesta y re-render si cambian
   (async()=>{
     try{
