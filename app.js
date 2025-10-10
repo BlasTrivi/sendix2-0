@@ -45,6 +45,31 @@ function updateBottomBarHeight(){
     const bar = document.querySelector('.bottombar.visible');
     const h = bar ? bar.getBoundingClientRect().height : 0;
     document.documentElement.style.setProperty('--bottom-bar-height', h+'px');
+    
+    // También calcular altura total de elementos fijos móviles (barra inferior + barra de búsqueda si está visible)
+    let totalFixedHeight = h;
+    
+    // Si estamos en conversaciones, agregar altura de la barra de búsqueda
+    if (location.hash.includes('conversaciones') || document.body.classList.contains('route-conversaciones')) {
+      const searchBar = document.getElementById('chat-search');
+      if (searchBar && searchBar.offsetParent !== null) { // Verificar si está visible
+        const searchRow = searchBar.closest('.row');
+        if (searchRow) {
+          totalFixedHeight += searchRow.getBoundingClientRect().height;
+        }
+      }
+    }
+    
+    document.documentElement.style.setProperty('--total-fixed-height', totalFixedHeight + 'px');
+    
+    // Debug: mostrar en consola las alturas calculadas (solo en desarrollo)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('Alturas móviles:', {
+        bottomBar: h + 'px',
+        totalFixed: totalFixedHeight + 'px',
+        route: location.hash
+      });
+    }
   }catch{}
 }
 
@@ -289,6 +314,8 @@ function navigate(route){
   if(route==='tracking') renderTracking();
   if(route==='conversaciones') reflectMobileChatState(); else document.body.classList.remove('chat-has-active');
   // Asegurar que el indicador de escritura no quede visible fuera del chat
+  // Actualizar altura de elementos fijos cuando cambie la ruta
+  setTimeout(() => updateBottomBarHeight(), 100);
   if(route!=='conversaciones'){
     try{ const ti = document.getElementById('typing-indicator'); if(ti) ti.style.display='none'; }catch{}
   }
