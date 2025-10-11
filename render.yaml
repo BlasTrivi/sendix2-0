@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     # Instalamos también devDependencies para que TypeScript encuentre los @types/* durante el build
-  buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     # npm start ejecuta "prestart" (prisma db push) y luego arranca dist/server.js
     # Si más adelante migrás a migraciones versionadas: reemplazar por "npm run migrate:deploy && node dist/server.js"
     startCommand: npm start
