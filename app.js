@@ -1030,7 +1030,7 @@ async function renderLoads(onlyMine=false){
   ul.innerHTML = data.length ? data.map(l=>`
     <li>
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
-      <div class="muted">Tipo: ${l.tipo} ${l.meta?.containerTipo? '· Cont: '+l.meta.containerTipo:''} ${l.meta?.producto? '· Prod: '+l.meta.producto:''} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')} · Por: ${l.owner}</div>
+      ${renderLoadSummary(l)}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row"><button class="btn btn-ghost" data-view="${l.id}">Ver propuestas</button></div>
     </li>`).join('') : '<li class="muted">No hay cargas.</li>';
@@ -1290,7 +1290,7 @@ async function renderMyLoadsWithProposals(focus){
   }).join('') : (showFiltered ? '<li class="muted">Sin propuestas filtradas por MICARGA aún.</li>' : '');
     return `<li id="load-${l.id}">
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
-      <div class="muted">Tipo: ${l.tipo} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')}</div>
+      ${renderLoadSummary(l)}
       ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>4? `<span class="muted">+${l.adjuntos.length-4} más</span>`:''}</div>`:''}
       ${approvedBlock ? `<div class="mt"><strong>Envío seleccionado</strong></div>${approvedBlock}` : ''}
@@ -2665,6 +2665,29 @@ function escapeHtml(str){
 function linkify(text){
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.replace(urlRegex, (url)=>`<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+}
+// Resumen prolijo para items de carga
+function renderLoadSummary(l){
+  if(!l) return '';
+  const parts = [];
+  // tipo + extras por tipo
+  let tipoLine = `📦 <b>${escapeHtml(l.tipo||'-')}</b>`;
+  if(l.meta?.containerTipo){ tipoLine += ` · Cont.: ${escapeHtml(l.meta.containerTipo)}`; }
+  if(l.meta?.presentacion){ tipoLine += ` · Pres.: ${escapeHtml(l.meta.presentacion)}`; }
+  if(l.meta?.producto){ tipoLine += ` · Prod.: ${escapeHtml(l.meta.producto)}`; }
+  parts.push(`<span class="kv">${tipoLine}<\/span>`);
+  // cantidad
+  if(l.cantidad){ parts.push(`<span class="kv">🔢 Cant.: <b>${escapeHtml(String(l.cantidad))} ${escapeHtml(l.unidad||'')}<\/b><\/span>`); }
+  // fecha
+  const fechaTxt = l.fechaHora ? new Date(l.fechaHora).toLocaleString() : (l.fecha||'');
+  if(fechaTxt){ parts.push(`<span class="kv">📅 Fecha: <b>${escapeHtml(fechaTxt)}<\/b><\/span>`); }
+  // peso/volumen/dimensiones si existen
+  if(l.peso){ parts.push(`<span class="kv">⚖️ Peso: <b>${escapeHtml(String(l.peso))} kg<\/b><\/span>`); }
+  if(l.volumen){ parts.push(`<span class="kv">🧪 Vol.: <b>${escapeHtml(String(l.volumen))} m³<\/b><\/span>`); }
+  if(l.dimensiones){ parts.push(`<span class="kv">📐 Dim.: <b>${escapeHtml(String(l.dimensiones))}<\/b><\/span>`); }
+  // autor
+  if(l.owner){ parts.push(`<span class="kv">👤 Por: <b>${escapeHtml(String(l.owner))}<\/b><\/span>`); }
+  return `<div class="load-summary">${parts.join('')}<\/div>`;
 }
 // Reset password UI
 function startResetFlow(token){
