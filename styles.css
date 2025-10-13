@@ -235,6 +235,15 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
   .icon-btn .label{ display:inline; }
 }
 
+/* Variante naranja fija para botón atrás */
+.icon-btn.orange{
+  background: linear-gradient(135deg, var(--accent), #ffae33);
+  border-color: transparent; color:#fff;
+  box-shadow: 0 10px 22px -4px rgba(243,146,0,.40), 0 4px 10px -2px rgba(243,146,0,.35);
+}
+.icon-btn.orange:hover{ background: linear-gradient(135deg, var(--accent), #ffae33); filter: brightness(1.03); color:#fff; }
+.icon-btn.orange:active{ filter: brightness(.97); }
+
 /* Control segmentado para tabs de registro */
 .segmented{ display:flex; gap:6px; padding:4px; background:#fff; border:1px solid var(--border); border-radius:14px; box-shadow: 0 1px 0 rgba(14,47,68,.05); }
 .seg-btn{
@@ -264,6 +273,12 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .seg-btn:hover{ background:#f6f9fb; }
 .seg-btn:focus-visible{ outline: var(--focus-outline); outline-offset: 2px; }
 .seg-btn:active{ transform: scale(.98); }
+
+/* Responsivo: que el segmento ocupe ancho completo en móvil y cada botón sea 50% */
+@media (max-width: 560px){
+  .segmented{ width:100%; }
+  .seg-btn{ flex:1 1 50%; text-align:center; }
+}
 
 /* --------------------
    Formularios e inputs
