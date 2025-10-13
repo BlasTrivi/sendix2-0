@@ -61,7 +61,12 @@
           <!-- Registro -->
           <div id="auth-register" class="form small auth-card" style="display:none; margin-top:14px">
             <div class="row" style="gap:8px; align-items:center">
-              <button class="icon-btn" id="auth-back-login" title="Volver" aria-label="Volver">←</button>
+              <button class="icon-btn with-label" id="auth-back-login" title="Volver" aria-label="Volver">
+                <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                  <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="label">Volver</span>
+              </button>
               <div class="segmented" role="tablist" aria-label="Tipo de cuenta">
                 <button type="button" class="seg-btn" id="reg-tab-company" role="tab" aria-selected="true">🏢 Cliente/Empresa</button>
                 <button type="button" class="seg-btn" id="reg-tab-carrier" role="tab" aria-selected="false">🚚 Transportista</button>

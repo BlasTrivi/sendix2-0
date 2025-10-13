@@ -420,11 +420,19 @@ function initLogin(){
     };
   }
   if(backLogin){
-    backLogin.onclick = ()=>{
+    const goBack = ()=>{
       if(regWrap) regWrap.style.display='none';
       if(loginForm) loginForm.style.display='grid';
       if(loginCtas) loginCtas.style.display='flex';
     };
+    backLogin.onclick = goBack;
+    // Soporte de teclado: Escape y Alt+Flecha Izquierda
+    backLogin.addEventListener('keydown', (ev)=>{
+      if(ev.key==='Escape' || (ev.altKey && ev.key==='ArrowLeft')){
+        ev.preventDefault();
+        goBack();
+      }
+    });
   }
   if(tabCompany){
     tabCompany.onclick = ()=>{

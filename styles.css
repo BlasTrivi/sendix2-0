@@ -218,14 +218,22 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
   border:1px solid var(--border);
   background:#fff;
   color:var(--primary);
-  width:40px; height:40px; border-radius:12px;
-  display:grid; place-items:center; font-size:18px; font-weight:700;
-  cursor:pointer; transition: transform .14s ease, box-shadow .18s ease, background var(--transition-base), border-color var(--transition-base);
+  min-width:40px; height:40px; border-radius:12px;
+  display:inline-flex; align-items:center; gap:8px; justify-content:center; padding:0 12px;
+  font-size:14px; font-weight:700;
+  cursor:pointer; transition: transform .14s ease, box-shadow .18s ease, background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
   box-shadow: 0 1px 0 rgba(14,47,68,.05);
 }
+.icon-btn .chev{flex:0 0 auto}
+.icon-btn .label{display:none}
+.icon-btn.with-label .label{display:inline}
 .icon-btn:hover{ transform: translateY(-2px); box-shadow: var(--shadow-sm); background:#f8fbfc; }
 .icon-btn:active{ transform: translateY(0); }
 .icon-btn:focus-visible{ outline: var(--focus-outline); outline-offset: var(--focus-outline-offset); }
+
+@media (min-width: 480px){
+  .icon-btn .label{ display:inline; }
+}
 
 /* Control segmentado para tabs de registro */
 .segmented{ display:flex; gap:6px; padding:4px; background:#fff; border:1px solid var(--border); border-radius:14px; box-shadow: 0 1px 0 rgba(14,47,68,.05); }
