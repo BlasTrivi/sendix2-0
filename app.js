@@ -399,6 +399,9 @@ function initLogin(){
       if(loginCtas) loginCtas.style.display='none';
       if(regCompany) regCompany.style.display='grid';
       if(regCarrier) regCarrier.style.display='none';
+      // default: empresa activa
+      if(tabCompany) tabCompany.setAttribute('aria-selected','true');
+      if(tabCarrier) tabCarrier.setAttribute('aria-selected','false');
     };
   }
   if(forgot){
@@ -423,8 +426,22 @@ function initLogin(){
       if(loginCtas) loginCtas.style.display='flex';
     };
   }
-  if(tabCompany){ tabCompany.onclick = ()=>{ if(regCompany) regCompany.style.display='grid'; if(regCarrier) regCarrier.style.display='none'; } }
-  if(tabCarrier){ tabCarrier.onclick = ()=>{ if(regCompany) regCompany.style.display='none'; if(regCarrier) regCarrier.style.display='grid'; } }
+  if(tabCompany){
+    tabCompany.onclick = ()=>{
+      if(regCompany) regCompany.style.display='grid';
+      if(regCarrier) regCarrier.style.display='none';
+      tabCompany.setAttribute('aria-selected','true');
+      tabCarrier?.setAttribute('aria-selected','false');
+    }
+  }
+  if(tabCarrier){
+    tabCarrier.onclick = ()=>{
+      if(regCompany) regCompany.style.display='none';
+      if(regCarrier) regCarrier.style.display='grid';
+      tabCarrier.setAttribute('aria-selected','true');
+      tabCompany?.setAttribute('aria-selected','false');
+    }
+  }
   if(cargasAll){
     cargasAll.addEventListener('change', ()=>{
       const boxes = regCarrier?.querySelectorAll('input[type="checkbox"][name="cargas"]');
