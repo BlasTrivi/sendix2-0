@@ -238,16 +238,32 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 /* Control segmentado para tabs de registro */
 .segmented{ display:flex; gap:6px; padding:4px; background:#fff; border:1px solid var(--border); border-radius:14px; box-shadow: 0 1px 0 rgba(14,47,68,.05); }
 .seg-btn{
+  position:relative; overflow:hidden;
   border:none; background:transparent; color:var(--primary);
   padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:700; font-size:var(--step--1);
-  transition: background var(--transition-base), color var(--transition-base), transform .14s ease, box-shadow .18s ease;
+  transition: background var(--transition-base), color var(--transition-base), transform .14s ease, box-shadow .18s ease, filter var(--transition-base);
 }
+/* Ripple sutil al hacer click */
+.seg-btn::after{
+  content:""; position:absolute; left:50%; top:50%; width:0; height:0; border-radius:50%;
+  background: rgba(243,146,0,.20); transform: translate(-50%,-50%);
+  opacity:0; transition: width .32s ease, height .32s ease, opacity .5s ease;
+}
+.seg-btn:active::after{ width:180%; height:180%; opacity:1; }
+
+/* Estado seleccionado: naranja */
 .seg-btn[aria-selected="true"]{
-  background: linear-gradient(135deg, #e3f3f1, #d7f0e0);
-  color:#1B3A4B; box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 6px 16px rgba(58,175,169,.16);
+  background: linear-gradient(135deg, var(--accent), #ffae33);
+  color:#fff;
+  box-shadow: 0 10px 22px -6px rgba(243,146,0,.45), 0 2px 8px rgba(243,146,0,.25);
 }
-.seg-btn:hover{ background:#f0f6f7; }
+.seg-btn[aria-selected="true"]:hover{ filter: brightness(1.04) saturate(1.04); }
+.seg-btn[aria-selected="true"]:active{ filter: brightness(.97); }
+
+/* Hover y foco para no seleccionados */
+.seg-btn:hover{ background:#f6f9fb; }
 .seg-btn:focus-visible{ outline: var(--focus-outline); outline-offset: 2px; }
+.seg-btn:active{ transform: scale(.98); }
 
 /* --------------------
    Formularios e inputs
