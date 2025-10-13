@@ -283,6 +283,17 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .roles{border:1px dashed var(--border); padding:10px; border-radius:12px}
 .radio{display:block; margin:6px 0}
 
+/* Campos en línea: etiqueta a la izquierda, input a la derecha */
+.inline-field{ display:flex; align-items:center; gap:10px; }
+.inline-field > span{ flex:0 0 auto; }
+.inline-field{ font-weight:700; }
+.inline-field input{ flex:1 1 auto; min-width:0; margin-left:auto; }
+
+@media (max-width: 560px){
+  .inline-field{ flex-direction:column; align-items:stretch; }
+  .inline-field input{ margin-left:0; width:100%; }
+}
+
 /* --------------------
    Listas
    -------------------- */
