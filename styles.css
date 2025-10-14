@@ -423,18 +423,19 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .bubble{font-family:'Inter','Segoe UI',sans-serif; font-size:15.5px; line-height:1.45; box-shadow:0 2px 12px rgba(58,175,169,.08); transition:box-shadow .18s,background .18s;}
 .bubble.me{
   margin-left:auto;
-  background: linear-gradient(90deg, #e3f3f1 78%, #d7f0e0 100%);
-  border-color: #3AAFA9;
-  color:#1B3A4B;
+  /* tono teal más sólido */
+  background: linear-gradient(180deg, #cfeee7 0%, #bfe6dd 100%);
+  border-color: #2f9c93;
+  color:#0E2F44;
+  box-shadow: 0 2px 14px rgba(58,175,169,.12);
 }
-/* Otros participantes: dar más contraste para que se vea bien el contorno en panel claro */
+/* Otros participantes: más sólido para que se perciba el contorno */
 .bubble.other{
   margin-right:auto;
-  /* fondo levemente celeste para resaltar sobre #fbfdfe del chat */
-  background: linear-gradient(90deg, #f0f7f8 78%, #eaf6f6 100%);
-  border-color: #cfe5e8;
-  color:#1B3A4B;
-  box-shadow: 0 2px 14px rgba(58,175,169,.10); /* un toque más de sombra para definición */
+  background: #e1f2f6; /* sólido y claro pero notorio */
+  border-color: #9ccfd4;
+  color:#0E2F44;
+  box-shadow: 0 2px 14px rgba(58,175,169,.12);
 }
 .bubble .bubble-reply{font-size:12px; color:var(--muted); padding:6px 8px; border-left:3px solid var(--secondary); margin:-6px -6px 6px -6px; background:#f4faf9; border-radius:10px}
 .bubble .attachments{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
