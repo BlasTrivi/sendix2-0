@@ -43,13 +43,15 @@ const state = {
 function updateBottomBarHeight(){
   try{
     const bar = document.querySelector('.bottombar.visible');
-    const h = bar ? bar.getBoundingClientRect().height : 0;
+    // Si el teclado está abierto, considerar altura 0 para no empujar el contenido
+    const keyboardOpen = document.body.classList.contains('keyboard-open');
+    const h = (bar && !keyboardOpen) ? bar.getBoundingClientRect().height : 0;
   // Mantener compatibilidad y actualizar la variable usada por CSS
   document.documentElement.style.setProperty('--bbar-h', h+'px');
   document.documentElement.style.setProperty('--bottom-bar-height', h+'px');
     
     // También calcular altura total de elementos fijos móviles (barra inferior + barra de búsqueda si está visible)
-    let totalFixedHeight = h;
+  let totalFixedHeight = h;
     
     // Si estamos en conversaciones, agregar altura de la barra de búsqueda
     if (location.hash.includes('conversaciones') || document.body.classList.contains('route-conversaciones')) {
@@ -62,7 +64,7 @@ function updateBottomBarHeight(){
       }
     }
     
-    document.documentElement.style.setProperty('--total-fixed-height', totalFixedHeight + 'px');
+  document.documentElement.style.setProperty('--total-fixed-height', totalFixedHeight + 'px');
     
     // Debug: mostrar en consola las alturas calculadas (solo en desarrollo)
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -86,6 +88,8 @@ function updateBrowserUiGap(){
       if(vv && typeof vv.height==='number'){
         const inner = window.innerHeight;
         gap = Math.max(0, inner - Math.floor(vv.height));
+        // Si el teclado está abierto, no usar gap para evitar doble padding
+        if(document.body.classList.contains('keyboard-open')){ gap = 0; }
       }
     }
     document.documentElement.style.setProperty('--browser-ui-bottom-gap', gap+'px');
@@ -104,6 +108,27 @@ function updateComposerHeight(){
     const rect = form.getBoundingClientRect();
     const h = Math.ceil(rect.height);
     if(h>0){ document.documentElement.style.setProperty('--composer-h', h+'px'); }
+  }catch{}
+}
+// Detectar apertura de teclado en móviles usando visualViewport (iOS/Android)
+function bindKeyboardDetection(){
+  try{
+    const vv = window.visualViewport;
+    if(!vv) return;
+    let baseline = window.innerHeight;
+    function onResize(){
+      try{
+        const keyboardOpen = vv.height < baseline - 80; // umbral ~80px
+        document.body.classList.toggle('keyboard-open', !!keyboardOpen);
+        // Recalcular alturas dependientes
+        updateBottomBarHeight();
+        updateBrowserUiGap();
+        updateComposerHeight();
+      }catch{}
+    }
+    // Actualizar baseline en cambios de orientación
+    window.addEventListener('orientationchange', ()=>{ setTimeout(()=>{ baseline = window.innerHeight; onResize(); }, 120); });
+    vv.addEventListener('resize', onResize, { passive:true });
   }catch{}
 }
 
@@ -2665,6 +2690,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   updateBottomBarHeight();
   window.addEventListener('resize', ()=>{ updateBottomBarHeight(); updateChatFades(); });
   window.addEventListener('hashchange', ()=>reflectMobileChatState());
+  // Vincular detección de teclado
+  bindKeyboardDetection();
   const back = document.getElementById('chat-back');
   if(back) back.onclick = ()=>{
     // Volver a la lista de chats en móviles
