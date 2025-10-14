@@ -536,8 +536,9 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
 .cards .card[data-nav] .btn-ghost{ position: relative; z-index: 1; }
 
 @media (max-width: 720px){
-  #view-container{ padding: clamp(10px,3vw,16px); padding-bottom: calc(var(--total-fixed-height) + 90px + var(--safe-bottom)); }
+  #view-container{ padding: clamp(10px,3vw,16px); padding-bottom: calc(var(--total-fixed-height) + 140px + var(--safe-bottom)); }
   .cards{ grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cards{ margin-bottom: calc(var(--total-fixed-height) + 20px); }
   .card{ padding: 12px; border-radius: 16px; }
   .card h3{ font-size: 1rem; }
   .card .card-desc{ font-size: .9rem; }
@@ -559,11 +560,12 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
   .topbar-inner{ padding: 8px 10px; }
   .app-name{ font-size: 20px; }
   .tagline{ display:none; }
-  #view-container{ padding: 10px; padding-bottom: calc(var(--total-fixed-height) + 72px + var(--safe-bottom)); }
+  #view-container{ padding: 10px; padding-bottom: calc(var(--total-fixed-height) + 140px + var(--safe-bottom)); }
   .hero-main{ padding: 12px; }
   .hero-title{ font-size: 1.1rem; }
   .section-title{ font-size: 1rem; }
   .cards{ grid-template-columns: 1fr; gap: 10px; }
+  .cards{ margin-bottom: calc(var(--total-fixed-height) + 20px); }
   .card{ padding: 12px; border-radius: 14px; }
   .list{ gap: 8px; }
   .list li{ padding: 10px; }
@@ -607,6 +609,12 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
   .app-name{ font-size: 22px; }
   .tagline{ font-size: 11px; }
   .user-badge{ font-size: 13px; }
+  /* Mostrar solo iniciales (avatar) en móviles */
+  #user-badge .muted{ display:none; }
+  #user-badge #open-profile{
+    padding: 4px; border: none; background: transparent; box-shadow: none;
+  }
+  #user-badge #open-profile .avatar{ width: 32px; height: 32px; font-size: 13px; }
 }
 
 /* Como el header ya no está dentro de #app, mantenemos padding dinámico para la barra inferior */
