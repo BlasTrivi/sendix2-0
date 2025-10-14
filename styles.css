@@ -39,6 +39,8 @@
   --bbar-h: 64px;
   /* Altura total de elementos fijos móviles (barra inferior + barra de búsqueda si está visible) */
   --total-fixed-height: 64px;
+  /* Gap adicional por UI del navegador móvil (iOS Safari barra inferior/toolbar) */
+  --browser-ui-bottom-gap: 0px;
   /* Altura del recuadro de chat unificada (se adapta sin estirarse de más) */
   --chat-h: clamp(480px, 70vh, 760px);
   /* Escalas tipográficas fluidas */
@@ -143,7 +145,7 @@ body{
 .user-badge{color:var(--muted); font-size:14px}
 
 /* Contenedor de vistas */
-#view-container{flex:1; padding:clamp(14px,2.2vw,22px); padding-bottom: calc(var(--total-fixed-height) + 110px + var(--safe-bottom)); overflow:auto; }
+#view-container{flex:1; padding:clamp(14px,2.2vw,22px); padding-bottom: calc(var(--total-fixed-height) + 110px + var(--safe-bottom) + var(--browser-ui-bottom-gap)); overflow:auto; }
 /* Ocultar visualmente la barra de scroll del contenedor principal en todas las vistas (manteniendo desplazamiento) */
 #view-container{ scrollbar-width: none; -ms-overflow-style: none; }
 #view-container::-webkit-scrollbar{ width: 0; height: 0; }
@@ -553,7 +555,7 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
 .cards .card[data-nav] .btn-ghost{ position: relative; z-index: 1; }
 
 @media (max-width: 720px){
-  #view-container{ padding: clamp(10px,3vw,16px); padding-bottom: calc(var(--total-fixed-height) + 140px + var(--safe-bottom)); }
+  #view-container{ padding: clamp(10px,3vw,16px); padding-bottom: calc(var(--total-fixed-height) + 140px + var(--safe-bottom) + var(--browser-ui-bottom-gap)); }
   .cards{ grid-template-columns: 1fr 1fr; gap: 12px; }
   .cards{ margin-bottom: calc(var(--total-fixed-height) + 20px); }
   .card{ padding: 12px; border-radius: 16px; }
@@ -577,7 +579,7 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   .topbar-inner{ padding: 8px 10px; }
   .app-name{ font-size: 20px; }
   .tagline{ display:none; }
-  #view-container{ padding: 10px; padding-bottom: calc(var(--total-fixed-height) + 140px + var(--safe-bottom)); }
+  #view-container{ padding: 10px; padding-bottom: calc(var(--total-fixed-height) + 140px + var(--safe-bottom) + var(--browser-ui-bottom-gap)); }
   .hero-main{ padding: 12px; }
   .hero-title{ font-size: 1.1rem; }
   .section-title{ font-size: 1rem; }
@@ -640,7 +642,7 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
 @media (max-width: 720px) {
   /* Asegurar que el contenido sea scrolleable */
   #view-container {
-    min-height: calc(100vh - var(--total-fixed-height) - var(--safe-bottom) - 90px);
+    min-height: calc(100vh - var(--total-fixed-height) - var(--safe-bottom) - var(--browser-ui-bottom-gap) - 90px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
   }
@@ -654,7 +656,7 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
 /* Estilos base para el contenedor principal */
 #view-container{ 
   padding-top: 18px; 
-  padding-bottom: calc(var(--total-fixed-height) + 110px + var(--safe-bottom)); 
+  padding-bottom: calc(var(--total-fixed-height) + 110px + var(--safe-bottom) + var(--browser-ui-bottom-gap)); 
 }
 
 /* Utilidades */

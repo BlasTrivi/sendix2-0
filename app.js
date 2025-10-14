@@ -75,6 +75,23 @@ function updateBottomBarHeight(){
   }catch{}
 }
 
+// Detecta el gap de UI del navegador móvil (ej. barra inferior de Safari iOS)
+function updateBrowserUiGap(){
+  try{
+    const isIOS = /iP(hone|od|ad)/.test(navigator.platform) || (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+    let gap = 0;
+    if(isIOS){
+      // Diferencia entre innerHeight y visualViewport height indica toolbars
+      const vv = window.visualViewport;
+      if(vv && typeof vv.height==='number'){
+        const inner = window.innerHeight;
+        gap = Math.max(0, inner - Math.floor(vv.height));
+      }
+    }
+    document.documentElement.style.setProperty('--browser-ui-bottom-gap', gap+'px');
+  }catch{}
+}
+
 // Calcula y fija en CSS la altura real del compositor de chat para ajustar el padding del historial
 function updateComposerHeight(){
   try{
@@ -333,6 +350,7 @@ function navigate(route){
   // Asegurar que el indicador de escritura no quede visible fuera del chat
   // Actualizar altura de elementos fijos cuando cambie la ruta
   setTimeout(() => updateBottomBarHeight(), 100);
+  setTimeout(() => updateBrowserUiGap(), 120);
   if(route!=='conversaciones'){
     try{ const ti = document.getElementById('typing-indicator'); if(ti) ti.style.display='none'; }catch{}
   }
@@ -2810,5 +2828,11 @@ function startResetFlow(token){
 }
 
 // Recalcular en resize y cambios de orientación
-window.addEventListener('resize', ()=>{ try{ updateBottomBarHeight(); updateComposerHeight(); }catch{} });
+window.addEventListener('resize', ()=>{ try{ updateBottomBarHeight(); updateComposerHeight(); updateBrowserUiGap(); }catch{} });
+if(window.visualViewport){
+  try{
+    window.visualViewport.addEventListener('resize', ()=>{ updateBrowserUiGap(); }, { passive:true });
+  }catch{}
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ setTimeout(()=>{ updateBottomBarHeight(); updateBrowserUiGap(); }, 50); } });
 window.addEventListener('orientationchange', ()=>{ try{ setTimeout(updateBottomBarHeight, 150); }catch{} });

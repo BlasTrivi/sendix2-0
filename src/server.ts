@@ -987,18 +987,21 @@ async function ensureMicargaAdmin(){
   try{
     const email = (process.env.MICARGA_ADMIN_EMAIL || process.env.SENDIX_ADMIN_EMAIL || '').toLowerCase().trim();
     const password = process.env.MICARGA_ADMIN_PASSWORD || process.env.SENDIX_ADMIN_PASSWORD || '';
-  const name = process.env.MICARGA_ADMIN_NAME || process.env.SENDIX_ADMIN_NAME || 'MICARGA';
+    const name = process.env.MICARGA_ADMIN_NAME || process.env.SENDIX_ADMIN_NAME || 'MICARGA';
     if(!email || !password){
       console.log('ℹ️ MICARGA_ADMIN_EMAIL/PASSWORD no configurados (ni legacy SENDIX_*): omitiendo bootstrap de admin MICARGA');
       return;
     }
     const existing = await prisma.usuario.findUnique({ where: { email } });
     if(existing){
-      if((existing.role as any) !== 'micarga'){
-        await prisma.usuario.update({ where: { id: existing.id }, data: { role: 'micarga' as any } });
-        console.log('✅ Usuario existente marcado como rol administrador (micarga) para MICARGA:', email);
+      const updateData: any = {};
+      if((existing.role as any) !== 'micarga') updateData.role = 'micarga' as any;
+      if(existing.name !== name) updateData.name = name;
+      if(Object.keys(updateData).length){
+        await prisma.usuario.update({ where: { id: existing.id }, data: updateData });
+        console.log('✅ Usuario MICARGA actualizado:', { email, ...updateData });
       } else {
-        console.log('ℹ️ Admin MICARGA ya existe:', email);
+        console.log('ℹ️ Admin MICARGA ya existe y está actualizado:', email);
       }
       return;
     }
