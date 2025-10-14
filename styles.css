@@ -511,6 +511,17 @@ body.route-conversaciones.chat-has-active #chat-area{ display:block; }
 .chat-main-left{ display:flex; align-items:flex-start; gap:8px }
 body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !important }
 
+/* Conversaciones: ocultar título y barra de búsqueda cuando hay chat activo; acomodar offsets */
+body.route-conversaciones.chat-has-active section[data-route="conversaciones"] > h2.section-title{ display:none; }
+body.route-conversaciones.chat-has-active section[data-route="conversaciones"] > .row{ display:none; }
+body.route-conversaciones.chat-has-active #chat-area{ margin-top: 0 !important; }
+/* Reducir padding inferior del contenedor para que el compositor quede pegado a la bottombar */
+body.route-conversaciones.chat-has-active #view-container{ padding-bottom: var(--total-fixed-height); }
+/* Composer pegado a la barra inferior (usa altura real calculada por JS) */
+body.route-conversaciones.chat-has-active .chat-input{ bottom: var(--bbar-h); }
+/* Dar espacio extra dentro del chat para que no tape el compositor ni la barra inferior */
+body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(120px + var(--total-fixed-height)); }
+
 #tracking-search{max-width:220px}
 #tracking-list .row .btn{padding:8px 12px}
 
