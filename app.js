@@ -1675,11 +1675,10 @@ function renderThreads(){
       const title = `${l?.origen||'?'} → ${l?.destino||'?'}`;
       const unread = unreadMap[p.id]?.unread || 0;
       const lastTs = unreadMap[p.id]?.lastMessageAt ? new Date(unreadMap[p.id].lastMessageAt).getTime() : (p.createdAt ? new Date(p.createdAt).getTime() : 0);
+      // Descripción del chat: sin vehículo ni precio
       const subParts = [
         `Empresa: ${l?.owner||'-'}`,
-        `Transportista: ${p.carrier||'-'}`,
-        `Vehículo: ${p.vehicle||'-'}`,
-        `Precio: ${typeof p.price==='number'? ('$'+p.price.toLocaleString('es-AR')):'-'}`
+        `Transportista: ${p.carrier||'-'}`
       ];
       const sub = subParts.join(' · ');
       const match = (title+' '+sub).toLowerCase().includes(q);
