@@ -856,6 +856,16 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   font-size: 15px;
   padding: 8px 16px;
 }
+/* Login: campos Email y Contraseña en línea en escritorios */
+@media (min-width: 760px){
+  .login-form .login-inline{ flex-wrap:nowrap; }
+  .login-form .login-inline-field{ display:grid; grid-template-columns:auto 1fr; align-items:center; }
+  .login-form .login-inline-field input{ width:100%; }
+}
+@media (max-width: 759.98px){
+  .login-form .login-inline{ flex-direction:column; }
+  .login-form .login-inline-field{ width:100%; }
+}
 @media (max-width: 600px) {
   .login-box {
     max-width: 98vw;
