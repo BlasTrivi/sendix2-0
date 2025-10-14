@@ -75,6 +75,21 @@ function updateBottomBarHeight(){
   }catch{}
 }
 
+// Calcula y fija en CSS la altura real del compositor de chat para ajustar el padding del historial
+function updateComposerHeight(){
+  try{
+    const form = document.getElementById('chat-form');
+    if(!form || form.style.display==='none'){
+      document.documentElement.style.removeProperty('--composer-h');
+      return;
+    }
+    // Usar bounding rect para capturar padding/bordes
+    const rect = form.getBoundingClientRect();
+    const h = Math.ceil(rect.height);
+    if(h>0){ document.documentElement.style.setProperty('--composer-h', h+'px'); }
+  }catch{}
+}
+
 // --- Socket.IO cliente ---
 let socket = null;
 function ensureSocket(){
@@ -2109,6 +2124,8 @@ function renderChat(){
   document.body.classList.add('chat-has-active');
   if(backBtn) backBtn.style.display='inline-flex';
   chatForm.style.display='flex';
+  // Actualizar altura del compositor (visible ahora)
+  updateComposerHeight();
   const p = state.proposals.find(x=>threadIdFor(x)===state.activeThread);
   if(!p){ box.innerHTML='<div class="muted">Conversación no disponible.</div>'; return; }
   const l = state.loads.find(x=>x.id===p.loadId);
@@ -2163,8 +2180,9 @@ function renderChat(){
   const ta = document.getElementById('chat-textarea');
   // Autosize textarea
   function autoresize(){ if(!ta) return; ta.style.height='auto'; ta.style.height = Math.min(160, Math.max(40, ta.scrollHeight)) + 'px'; }
-  if(ta) ta.oninput = (e)=>{ autoresize(); showTyping(); };
+  if(ta) ta.oninput = (e)=>{ autoresize(); updateComposerHeight(); showTyping(); };
   autoresize();
+  updateComposerHeight();
 
   // Enviar con Enter, saltos con Shift+Enter
   if(ta) ta.onkeydown = (e)=>{
@@ -2181,7 +2199,7 @@ function renderChat(){
   if(inputAttach) inputAttach.onchange = ()=>{
     const files = Array.from(inputAttach.files||[]).slice(0,6);
     tempAttach = []; attachPreviews.innerHTML='';
-    if(!files.length){ attachPreviews.style.display='none'; return; }
+  if(!files.length){ attachPreviews.style.display='none'; updateComposerHeight(); return; }
     // Convertir a dataURL (base64) para persistir en servidor (JSON) – solo imágenes pequeñas
     const MAX_SIZE = 2 * 1024 * 1024; // 2MB
     const toDataUrl = (file)=> new Promise((resolve,reject)=>{
@@ -2205,6 +2223,7 @@ function renderChat(){
         }
       }
       attachPreviews.style.display = tempAttach.length? 'flex':'none';
+      updateComposerHeight();
     })();
   };
 
@@ -2281,7 +2300,7 @@ function renderChat(){
         };
         state.messages.push(mapped);
         save();
-        form.reset(); autoresize(); hideTyping(); setReply(null);
+        form.reset(); autoresize(); updateComposerHeight(); hideTyping(); setReply(null);
         tempAttach.splice(0); attachPreviews.innerHTML=''; attachPreviews.style.display='none'; inputAttach.value='';
         renderChat();
         renderThreads();
@@ -2301,12 +2320,15 @@ function renderChat(){
   }, { once: true, capture: true });
   if(ta){ ta.addEventListener('blur', hideTyping); }
   reflectMobileChatState();
+  // Altura del compositor puede cambiar por orientación/viewport
+  setTimeout(updateComposerHeight, 0);
 }
 
 function reflectMobileChatState(){
   const routeIsChat = (location.hash.replace('#','')||'home')==='conversaciones';
   const hasActive = !!state.activeThread;
   document.body.classList.toggle('chat-has-active', routeIsChat && hasActive);
+  if(routeIsChat && hasActive){ try{ updateComposerHeight(); }catch{} }
 }
 
 function updateChatFades(){
@@ -2785,5 +2807,5 @@ function startResetFlow(token){
 }
 
 // Recalcular en resize y cambios de orientación
-window.addEventListener('resize', ()=>{ try{ updateBottomBarHeight(); }catch{} });
+window.addEventListener('resize', ()=>{ try{ updateBottomBarHeight(); updateComposerHeight(); }catch{} });
 window.addEventListener('orientationchange', ()=>{ try{ setTimeout(updateBottomBarHeight, 150); }catch{} });

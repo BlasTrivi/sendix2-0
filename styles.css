@@ -520,7 +520,8 @@ body.route-conversaciones.chat-has-active #view-container{ padding-bottom: var(-
 /* Composer pegado a la barra inferior (usa altura real calculada por JS) */
 body.route-conversaciones.chat-has-active .chat-input{ bottom: var(--bbar-h); }
 /* Dar espacio extra dentro del chat para que no tape el compositor ni la barra inferior */
-body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(120px + var(--total-fixed-height)); }
+/* Usar la altura real del compositor para no dejar espacio en blanco al final */
+body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(var(--composer-h, 96px) + 12px); }
 
 #tracking-search{max-width:220px}
 #tracking-list .row .btn{padding:8px 12px}
