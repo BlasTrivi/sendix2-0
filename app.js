@@ -1386,11 +1386,12 @@ async function renderOffers(){
   ul.innerHTML = offers.length
     ? offers.map(l=>{
         const alreadyApplied = state.proposals.some(p=>p.loadId===l.id && p.carrier===state.user?.name);
+        const myProposal = state.proposals.find(p=>p.loadId===l.id && p.carrier===state.user?.name);
         const formHtml = alreadyApplied
-          ? `<div class="row"><span class="badge">Ya te postulaste</span></div>`
+          ? `<div class="row"><span class="badge">Ya te postulaste</span>${myProposal? `<span class="price-tag">ARS $${Number(myProposal.price||0).toLocaleString('es-AR')}</span>`:''}</div>`
           : `<form class="row" data-apply="${l.id}">
                <input name="vehicle" placeholder="Vehículo" required autocomplete="off"/>
-               <input name="price" type="number" min="0" step="100" placeholder="Precio (ARS)" required autocomplete="off"/>
+               <div class="price-input"><span class="currency">ARS $</span><input name="price" type="number" min="0" step="100" placeholder="Precio" required autocomplete="off"/></div>
                <button class="btn btn-primary">Postularse</button>
              </form>`;
         return `<li>
@@ -1398,7 +1399,7 @@ async function renderOffers(){
             <strong>${l.origen} ➜ ${l.destino}</strong>
             <span>${new Date(l.createdAt).toLocaleDateString()}</span>
           </div>
-          <div class="muted">Tipo: ${l.tipo} · Cant.: ${l.cantidad? `${l.cantidad} ${l.unidad||''}`:'-'} · Dim.: ${l.dimensiones||'-'} · Peso: ${l.peso? l.peso+' kg':'-'} · Vol: ${l.volumen? l.volumen+' m³':'-'} · Fecha: ${l.fechaHora? new Date(l.fechaHora).toLocaleString(): (l.fecha||'-')} · Empresa: ${l.owner}</div>
+          ${renderLoadSummary(l)}
           ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
           ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
           ${formHtml}
@@ -1441,14 +1442,17 @@ function renderMyProposals(){
     const l = state.loads.find(x=>x.id===p.loadId);
     const badge = p.status==='approved' ? 'Aprobada' : p.status==='rejected' ? 'Rechazada' : p.status==='filtered' ? 'Filtrada' : 'En revisión';
     const canChat = p.status==='approved';
-    return `<li class="row">
-      <div>
-        <div><strong>${l?.origen} ➜ ${l?.destino}</strong></div>
-        <div class="muted">Para: ${l?.owner} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')}</div>
-      </div>
+    return `<li>
       <div class="row">
+        <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${badge}</span>
-        <strong>$${p.price.toLocaleString('es-AR')}</strong>
+      </div>
+      ${renderLoadSummary(l)}
+      ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
+      ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
+      <div class="row">
+        <span class="muted">Precio ofertado</span>
+        <span class="price-tag">ARS $${p.price.toLocaleString('es-AR')}</span>
         ${canChat ? `<button class="btn" data-chat="${p.id}">Chat</button>` : ''}
       </div>
     </li>`;

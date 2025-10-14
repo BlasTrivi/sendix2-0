@@ -347,6 +347,10 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .list li .chip.ok{background:#eafaf2; border-color:#d7f0e0; color:#15803d}
 .list li .chip.warn{background:#fff5e6; border-color:#ffe6c2; color:#a15b00}
 .list li:hover{ box-shadow: var(--shadow-md); }
+.price-tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: #fff7ec; border:1px solid #ffe6c2; color:#a15b00; font-weight:700; }
+.price-input{ display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.price-input .currency{ padding: 10px 10px; background:#f8fbfc; color:#3a4a5a; border-right:1px solid var(--border); font-weight:700; }
+.price-input input{ border:none; outline:none; padding:10px 12px; min-width: 120px; font-weight:700; }
 .row{display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap}
 .badge{font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); color:#fff; background:var(--secondary)}
 .badge-pill{display:inline-block; min-width:18px; padding:2px 6px; border-radius:999px; font-size:12px;
