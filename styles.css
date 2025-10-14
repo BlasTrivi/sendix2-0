@@ -331,6 +331,7 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 }
 .inline-field > span{ margin-right:6px; }
 .inline-field input{ grid-column:2; min-width:0; }
+.inline-field .hint{ grid-column: 2; margin-top: 4px; font-weight: 400; }
 
 /* --------------------
    Listas

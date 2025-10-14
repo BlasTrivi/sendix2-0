@@ -75,14 +75,14 @@
               <label class="inline-field"><span>🏢</span> Nombre / Empresa
                 <input name="companyName" placeholder="Ej: Acme S.A." required />
               </label>
-              <label><span>📧</span> Email
+              <label class="inline-field"><span>📧</span> Email
                 <input type="email" name="email" placeholder="tu@email.com" required />
               </label>
-              <label><span>🔒</span> Contraseña
+              <label class="inline-field"><span>🔒</span> Contraseña
                 <input type="password" name="password" minlength="6" placeholder="Mínimo 6 caracteres" required />
                 <small class="hint">Usá una contraseña segura.</small>
               </label>
-              <label><span>📱</span> Teléfono
+              <label class="inline-field"><span>📱</span> Teléfono
                 <input name="phone" placeholder="Ej: +54 9 11 1234-5678" />
               </label>
               <label class="inline-field"><span>🧾</span> DNI / CUIL / CUIT
@@ -98,21 +98,21 @@
             <!-- Registro Transportista -->
             <form id="register-carrier" class="form" autocomplete="off" style="display:none">
               <div class="row" style="gap:8px">
-                <label style="flex:1"><span>🙋</span> Nombre
+                <label class="inline-field" style="flex:1"><span>🙋</span> Nombre
                   <input name="firstName" placeholder="Ej: Juan" required />
                 </label>
-                <label style="flex:1"><span>👤</span> Apellido
+                <label class="inline-field" style="flex:1"><span>👤</span> Apellido
                   <input name="lastName" placeholder="Ej: Pérez" required />
                 </label>
               </div>
-              <label><span>📧</span> Email
+              <label class="inline-field"><span>📧</span> Email
                 <input type="email" name="email" placeholder="tu@email.com" required />
               </label>
-              <label><span>🔒</span> Contraseña
+              <label class="inline-field"><span>🔒</span> Contraseña
                 <input type="password" name="password" minlength="6" placeholder="Mínimo 6 caracteres" required />
                 <small class="hint">Usá una contraseña segura.</small>
               </label>
-              <label><span>🧾</span> DNI
+              <label class="inline-field"><span>🧾</span> DNI
                 <input name="dni" placeholder="Ej: 12.345.678" required />
               </label>
               <fieldset class="roles" style="margin-top:6px">
@@ -132,13 +132,13 @@
               <fieldset class="roles" style="margin-top:6px">
                 <legend>Seguros y habilitaciones</legend>
                 <label class="radio"><input type="checkbox" name="seguroOk"/> Seguro al día</label>
-                <label><span>🛡️</span> Tipo de seguro
+                <label class="inline-field"><span>🛡️</span> Tipo de seguro
                   <input name="tipoSeguro" placeholder="Ej: Responsabilidad civil" />
                 </label>
                 <label class="radio"><input type="checkbox" name="senasa"/> Habilitación SENASA</label>
                 <label class="radio"><input type="checkbox" name="imo"/> Realiza carga IMO</label>
               </fieldset>
-              <label><span>🗺️</span> Alcance del transporte
+              <label class="inline-field"><span>🗺️</span> Alcance del transporte
                 <input name="alcance" placeholder="Ej: Local/Regional/Nacional, rutas habituales, provincias/países…" />
               </label>
               <label class="agree">
