@@ -1202,6 +1202,8 @@ function initPublishForm(){
       del.onclick = ()=>{ pendingFiles.splice(idx,1); renderFileCards(); updatePreview(); };
       if(a.type.startsWith('image/') && a.preview){
         const img = document.createElement('img'); img.src = a.preview; img.alt = a.name; card.appendChild(img);
+        img.classList.add('file-preview-img');
+        img.addEventListener('click', ()=> openLightboxFromPublish(idx));
       } else {
         const chip = document.createElement('span'); chip.className='file-chip'; chip.textContent = a.name; card.appendChild(chip);
       }
@@ -1331,6 +1333,44 @@ function initPublishForm(){
     }
   });
   updatePreview();
+}
+
+// --- Lightbox publicación ---
+let _pubLightboxIndex = 0;
+function openLightboxFromPublish(startIndex){
+  try{
+    const overlay = document.getElementById('img-lightbox');
+    const imgEl = document.getElementById('img-lightbox-img');
+    const prevBtn = document.getElementById('img-lightbox-prev');
+    const nextBtn = document.getElementById('img-lightbox-next');
+    const closeBtn = document.getElementById('img-lightbox-close');
+    const counter = document.getElementById('img-lightbox-counter');
+    if(!overlay || !imgEl) return;
+    // Local snapshot de las imágenes actuales del publicador
+    const imgs = Array.from(document.querySelectorAll('#file-previews img')).map(el=>({ src: el.src, alt: el.alt||'Imagen' }));
+    if(!imgs.length) return;
+    _pubLightboxIndex = Math.min(Math.max(0, startIndex||0), imgs.length-1);
+    function render(){
+      const it = imgs[_pubLightboxIndex];
+      if(it){ imgEl.src = it.src; imgEl.alt = it.alt; }
+      if(counter){ counter.textContent = (_pubLightboxIndex+1)+' / '+imgs.length; }
+      prevBtn.disabled = _pubLightboxIndex<=0;
+      nextBtn.disabled = _pubLightboxIndex>=imgs.length-1;
+    }
+    function show(){ overlay.style.display='flex'; overlay.classList.add('show'); document.body.style.overflow='hidden'; render(); imgEl.focus?.(); }
+    function hide(){ overlay.classList.remove('show'); overlay.style.display='none'; document.body.style.overflow=''; document.removeEventListener('keydown', onKey); }
+    function onKey(e){
+      if(e.key==='Escape'){ hide(); }
+      else if(e.key==='ArrowRight'){ if(_pubLightboxIndex<imgs.length-1){ _pubLightboxIndex++; render(); } }
+      else if(e.key==='ArrowLeft'){ if(_pubLightboxIndex>0){ _pubLightboxIndex--; render(); } }
+    }
+    prevBtn.onclick = ()=>{ if(_pubLightboxIndex>0){ _pubLightboxIndex--; render(); } };
+    nextBtn.onclick = ()=>{ if(_pubLightboxIndex<imgs.length-1){ _pubLightboxIndex++; render(); } };
+    closeBtn.onclick = hide;
+    overlay.addEventListener('click', (ev)=>{ if(ev.target===overlay) hide(); });
+    document.addEventListener('keydown', onKey, { passive:true });
+    show();
+  }catch(err){ console.warn('Lightbox error', err); }
 }
 async function renderMyLoadsWithProposals(focus){
   await syncLoadsFromAPI();

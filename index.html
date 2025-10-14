@@ -650,5 +650,18 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js?v=20251010"></script>
+
+  <!-- Lightbox para previsualización de imágenes de publicaciones -->
+  <div id="img-lightbox" class="img-lightbox" style="display:none" aria-modal="true" role="dialog">
+    <div class="img-lightbox-inner">
+      <button type="button" class="img-lightbox-close" id="img-lightbox-close" aria-label="Cerrar">✕</button>
+      <img id="img-lightbox-img" alt="Previsualización" />
+      <div class="img-lightbox-nav">
+        <button type="button" id="img-lightbox-prev" aria-label="Anterior">◀</button>
+        <button type="button" id="img-lightbox-next" aria-label="Siguiente">▶</button>
+      </div>
+      <div id="img-lightbox-counter" class="img-lightbox-counter"></div>
+    </div>
+  </div>
 </body>
 </html>

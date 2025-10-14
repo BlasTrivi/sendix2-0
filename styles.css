@@ -911,3 +911,25 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
 .notice-modal .notice-actions{ padding: 12px 16px; display: flex; gap: 10px; justify-content: flex-end; background: #fff; border-top: 1px solid var(--border); }
 .notice-modal .btn-ack{ background: var(--secondary); color: #fff; border: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 18px rgba(58,175,169,.25); font-weight: 700; }
 .notice-modal .btn-ack:hover{ filter: brightness(1.05); }
+
+/* --------------------
+   Lightbox imágenes publicación
+   -------------------- */
+.img-lightbox{ position:fixed; inset:0; background:rgba(14,47,68,.75); display:none; align-items:center; justify-content:center; z-index:4000; padding:40px 24px; backdrop-filter:blur(4px); }
+.img-lightbox.show{ display:flex; animation: fadeIn .25s ease; }
+.img-lightbox-inner{ position:relative; max-width:min(90vw,1000px); max-height:80vh; display:flex; flex-direction:column; align-items:center; gap:12px; }
+.img-lightbox-inner img{ max-width:100%; max-height:70vh; object-fit:contain; border-radius:16px; box-shadow:0 12px 40px -8px rgba(0,0,0,.45); background:#fff; }
+.img-lightbox-close{ position:absolute; top:-14px; right:-14px; width:44px; height:44px; border-radius:50%; border:none; cursor:pointer; background:#fff; color:#0E2F44; font-size:20px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,.25); }
+.img-lightbox-close:hover{ filter:brightness(1.05); }
+.img-lightbox-nav{ position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); display:flex; justify-content:space-between; pointer-events:none; }
+.img-lightbox-nav button{ pointer-events:auto; background:rgba(255,255,255,.9); border:1px solid var(--border); width:54px; height:54px; border-radius:50%; cursor:pointer; font-size:20px; font-weight:700; box-shadow:0 6px 20px rgba(0,0,0,.30); display:grid; place-items:center; }
+.img-lightbox-nav button:hover{ background:#fff; }
+.img-lightbox-counter{ position:absolute; bottom:-40px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.55); color:#fff; padding:6px 12px; border-radius:999px; font-size:13px; letter-spacing:.5px; }
+@media (max-width:600px){
+  .img-lightbox{ padding:60px 10px 50px 10px; }
+  .img-lightbox-inner img{ max-height:65vh; }
+  .img-lightbox-close{ top:-10px; right:-10px; width:40px; height:40px; }
+  .img-lightbox-nav button{ width:46px; height:46px; }
+  .img-lightbox-counter{ bottom:-32px; }
+}
+@keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
