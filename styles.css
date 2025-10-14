@@ -318,6 +318,12 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .roles{border:1px dashed var(--border); padding:10px; border-radius:12px}
 .radio{display:block; margin:6px 0}
 
+/* Aceptación de términos: checkbox + texto más cercano */
+.agree{ display:flex; align-items:center; gap:6px; font-size: 14px; line-height:1.3; }
+.agree input[type="checkbox"]{ width:18px; height:18px; }
+.agree a{ color: var(--secondary); text-decoration: underline; }
+.agree a:hover{ filter: brightness(1.05); }
+
 /* Campos en línea: emoji + título a la izquierda, input a la derecha (siempre, incluso en móviles) */
 .inline-field{
   display:grid; grid-template-columns: auto 1fr; align-items:center; column-gap:10px;
