@@ -812,10 +812,10 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   gap: 18px;
 }
 .login-avatar {
-  width: 72px;
+  gap: 18px; /* más aire entre campos */
   height: 72px;
   border-radius: 50%;
-  background: #eaf1f6;
+  gap: 10px; /* separación clara entre título y campo */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -823,15 +823,18 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   margin-bottom: 8px;
 }
 .login-avatar img {
+  padding: 14px 16px; /* campos más cómodos */
+  line-height: 1.35;
   width: 54px;
   height: 54px;
-  object-fit: contain;
+  margin: 16px auto 0 0; /* más separación del card, bien abajo */
   border-radius: 50%;
 }
 .login-title {
   font-size: 1.7rem;
   font-weight: 700;
-  color: var(--primary);
+  min-height: 140px;
+  padding: 12px; /* un poco más de aire dentro del fieldset */
   margin: 0;
   text-align: center;
 }
