@@ -1445,7 +1445,7 @@ function renderMyProposals(){
 // Envíos del transportista (tracking por envío)
 function renderShipments(){
   const ul = document.getElementById('shipments');
-  (async()=>{ try{ await syncProposalsFromAPI(); }catch{}; actuallyRender(); })();
+  (async()=>{ try{ await syncProposalsFromAPI(); await syncLoadsFromAPI(); }catch{}; actuallyRender(); })();
   function actuallyRender(){
   const mine = state.proposals.filter(p=>p.carrier===state.user?.name && p.status==='approved');
   ul.innerHTML = mine.length ? mine.map(p=>{
@@ -1455,7 +1455,10 @@ function renderShipments(){
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
-      <div class="muted">Cliente: ${l?.owner} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Precio: $${p.price.toLocaleString('es-AR')}</div>
+      ${renderLoadSummary(l)}
+      ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
+      ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
+      <div class="row"><span class="muted">Precio</span><strong>$${p.price.toLocaleString('es-AR')}</strong></div>
       <div class="row">
         <select data-ship="${p.id}">
           ${SHIP_STEPS.map(s=>`<option value="${s}" ${s===(p.shipStatus||'pendiente')?'selected':''}>${s}</option>`).join('')}
