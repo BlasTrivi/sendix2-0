@@ -44,7 +44,9 @@ function updateBottomBarHeight(){
   try{
     const bar = document.querySelector('.bottombar.visible');
     const h = bar ? bar.getBoundingClientRect().height : 0;
-    document.documentElement.style.setProperty('--bottom-bar-height', h+'px');
+  // Mantener compatibilidad y actualizar la variable usada por CSS
+  document.documentElement.style.setProperty('--bbar-h', h+'px');
+  document.documentElement.style.setProperty('--bottom-bar-height', h+'px');
     
     // También calcular altura total de elementos fijos móviles (barra inferior + barra de búsqueda si está visible)
     let totalFixedHeight = h;
@@ -2771,3 +2773,7 @@ function startResetFlow(token){
     }
   }catch{}
 }
+
+// Recalcular en resize y cambios de orientación
+window.addEventListener('resize', ()=>{ try{ updateBottomBarHeight(); }catch{} });
+window.addEventListener('orientationchange', ()=>{ try{ setTimeout(updateBottomBarHeight, 150); }catch{} });

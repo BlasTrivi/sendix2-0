@@ -143,17 +143,17 @@ body{
 .user-badge{color:var(--muted); font-size:14px}
 
 /* Contenedor de vistas */
-#view-container{flex:1; padding:clamp(14px,2.2vw,22px); padding-bottom: calc(var(--bbar-h) + 110px + var(--safe-bottom)); overflow:auto; }
+#view-container{flex:1; padding:clamp(14px,2.2vw,22px); padding-bottom: calc(var(--total-fixed-height) + 110px + var(--safe-bottom)); overflow:auto; }
 /* Ocultar visualmente la barra de scroll del contenedor principal en todas las vistas (manteniendo desplazamiento) */
 #view-container{ scrollbar-width: none; -ms-overflow-style: none; }
 #view-container::-webkit-scrollbar{ width: 0; height: 0; }
 /* Vista conversaciones: permitir que los paneles internos gestionen su propio scroll sin bloquear el wheel */
 .view.active[data-route="conversaciones"]{ display:flex; flex-direction:column; min-height:0; }
-.view.active[data-route="conversaciones"] .chat-wrapper{ flex:1 1 auto; display:grid; grid-template-columns: 1fr; height:auto; max-height:calc(100vh - (var(--bbar-h) + 120px)); margin-bottom: calc(var(--bbar-h) + 12px); overflow:hidden; }
+.view.active[data-route="conversaciones"] .chat-wrapper{ flex:1 1 auto; display:grid; grid-template-columns: 1fr; height:auto; max-height:calc(100vh - (var(--total-fixed-height) + 120px)); margin-bottom: calc(var(--total-fixed-height) + 12px); overflow:hidden; }
 
 /* En la ruta de conversaciones, no scrollear el contenedor general */
 /* Conversaciones: ahora queremos scroll general igual que otras vistas */
-body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(var(--bbar-h) + 90px); }
+body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(var(--total-fixed-height) + 90px); }
 .chat-main{ display:flex; flex-direction:column; }
 .chat-box.big{ flex:1; overflow:auto; overscroll-behavior:contain; }
 
@@ -305,6 +305,7 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .form{display:grid; gap:12px; max-width:520px}
 .form.small{max-width:420px}
 .form input, .form textarea{padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:var(--step--1)}
+.form input, .form textarea, select, #chat-search{ font-size:16px; }
 .publish-form input, .publish-form textarea, .publish-form select { line-height:1.35; padding:14px 16px; }
 .form input::placeholder, .form textarea::placeholder{color:#94a6b2}
 .form input, .form textarea, .chat-input input, select, #chat-search{
@@ -380,6 +381,7 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .chat-main-header .chat-main-left{ min-width:0; }
 .chat-main-header .chat-main-actions{ flex:0 0 auto; }
 .chat-box.big{min-height:0; flex:1; overflow:auto; -webkit-overflow-scrolling: touch; padding:16px; padding-bottom: 120px; display:grid; gap:10px; background:#fbfdfe; border-radius:16px; box-shadow: inset 0 1px 0 rgba(14,47,68,.05); position: relative}
+.chat-box.big{ padding-bottom: calc(120px + var(--safe-bottom)); }
 
 /* Fades superiores/inferiores para indicar contenido desplazable */
 .chat-box.big::before,
