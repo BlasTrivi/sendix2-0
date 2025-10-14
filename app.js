@@ -2,14 +2,14 @@
   MICARGA — app.js (comentado)
    ---------------------------------------------------------------------
    - SPA sin framework: rutas por hash, estado en LocalStorage
-  - Roles: empresa, transportista, micarga (nexo)
+  - Roles: empresa, transportista, micarga
   - Módulos: navegación, auth, empresa, transportista, micarga, chat, tracking
    - Cada función tiene responsabilidad única y renderiza su vista
    ===================================================================== */
 // Guard defensivo: algunas versiones minificadas o integraciones externas podrían
 // asumir una variable global S. Evitamos ReferenceError si no existe.
 if(typeof S==='undefined'){ var S = {}; }
-// Nexo + Chat 3 partes + Tracking global por envío (modo API: sin persistencia en LocalStorage)
+// Chat 3 partes + Tracking global por envío (modo API: sin persistencia en LocalStorage)
 const routes = ['login','home','publicar','mis-cargas','ofertas','mis-postulaciones','mis-envios','moderacion','conversaciones','resumen','usuarios','perfil','chat','tracking'];
 const SHIP_STEPS = ['pendiente','en-carga','en-camino','entregado'];
 // Comisión MICARGA
@@ -2383,7 +2383,7 @@ function renderTracking(){
     hint.textContent = options.length ? 'Vista de estado. Solo lectura.' : 'No hay envíos aprobados aún.';
   } else if(state.user?.role==='micarga'){
     options = state.proposals.filter(p=>p.status==='approved');
-    hint.textContent = options.length ? 'Vista de nexo. Solo lectura.' : 'No hay envíos aprobados.';
+    hint.textContent = options.length ? 'Vista MICARGA. Solo lectura.' : 'No hay envíos aprobados.';
   }
 
   const activeFilter = (p)=> (p.shipStatus||'pendiente') !== 'entregado';

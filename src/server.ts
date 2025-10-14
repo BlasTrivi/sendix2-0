@@ -987,7 +987,7 @@ async function ensureMicargaAdmin(){
   try{
     const email = (process.env.MICARGA_ADMIN_EMAIL || process.env.SENDIX_ADMIN_EMAIL || '').toLowerCase().trim();
     const password = process.env.MICARGA_ADMIN_PASSWORD || process.env.SENDIX_ADMIN_PASSWORD || '';
-    const name = process.env.MICARGA_ADMIN_NAME || process.env.SENDIX_ADMIN_NAME || 'Nexo MICARGA';
+  const name = process.env.MICARGA_ADMIN_NAME || process.env.SENDIX_ADMIN_NAME || 'MICARGA';
     if(!email || !password){
       console.log('ℹ️ MICARGA_ADMIN_EMAIL/PASSWORD no configurados (ni legacy SENDIX_*): omitiendo bootstrap de admin MICARGA');
       return;
