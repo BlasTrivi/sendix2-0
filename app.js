@@ -2700,7 +2700,53 @@ function renderHome(){
 
 // Init
 document.addEventListener('DOMContentLoaded', ()=>{
-  initNav(); initLogin(); initPublishForm(); reconcileSessionWithUsers(); updateChrome();
+  initNav(); initLogin(); initPublishForm(); reconcileSessionWithUsers(); updateChrome(); initGlobalLightbox();
+// Lightbox global: cualquier imagen en adjuntos/chat/listas abre overlay
+function initGlobalLightbox(){
+  try{
+    document.addEventListener('click', (e)=>{
+      const target = e.target;
+      if(!(target instanceof HTMLImageElement)) return;
+      if(target.closest('#file-previews')) return; // manejado por publicación
+      if(!target.closest('.attachments') && !target.closest('.chat-box') && !target.closest('.list')) return;
+      openGenericLightbox(target);
+    });
+  }catch(err){ console.warn('initGlobalLightbox error', err); }
+}
+function openGenericLightbox(clickedImg){
+  try{
+    const overlay = document.getElementById('img-lightbox');
+    const imgEl = document.getElementById('img-lightbox-img');
+    const prevBtn = document.getElementById('img-lightbox-prev');
+    const nextBtn = document.getElementById('img-lightbox-next');
+    const closeBtn = document.getElementById('img-lightbox-close');
+    const counter = document.getElementById('img-lightbox-counter');
+    if(!overlay || !imgEl) return;
+    const groupRoot = clickedImg.closest('.attachments') || clickedImg.closest('.chat-box') || clickedImg.closest('.list') || document.body;
+    const imgs = Array.from(groupRoot.querySelectorAll('img')).filter(i=> i.naturalWidth>32 || i.naturalHeight>32);
+    if(!imgs.length) return;
+    let index = Math.max(0, imgs.indexOf(clickedImg));
+    function render(){
+      const it = imgs[index];
+      if(it){ imgEl.src = it.src; imgEl.alt = it.alt||'Imagen'; }
+      if(counter){ counter.textContent = (index+1)+' / '+imgs.length; }
+      prevBtn.disabled = index<=0; nextBtn.disabled = index>=imgs.length-1;
+    }
+    function show(){ overlay.style.display='flex'; overlay.classList.add('show'); document.body.style.overflow='hidden'; render(); }
+    function hide(){ overlay.classList.remove('show'); overlay.style.display='none'; document.body.style.overflow=''; document.removeEventListener('keydown', keyHandler); }
+    function keyHandler(ev){
+      if(ev.key==='Escape') hide();
+      else if(ev.key==='ArrowRight' && index<imgs.length-1){ index++; render(); }
+      else if(ev.key==='ArrowLeft' && index>0){ index--; render(); }
+    }
+    prevBtn.onclick = ()=>{ if(index>0){ index--; render(); } };
+    nextBtn.onclick = ()=>{ if(index<imgs.length-1){ index++; render(); } };
+    closeBtn.onclick = hide;
+    overlay.addEventListener('click', (ev)=>{ if(ev.target===overlay) hide(); });
+    document.addEventListener('keydown', keyHandler, { passive:true });
+    show();
+  }catch(err){ console.warn('openGenericLightbox error', err); }
+}
   // Restaurar sesión desde backend si hay token
   tryRestoreSession().finally(()=>{
     const start = state.user ? (location.hash.replace('#','')||'home') : 'login';
