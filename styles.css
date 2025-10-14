@@ -872,11 +872,11 @@ body.route-conversaciones.chat-has-active #chat-back{ display:inline-flex !impor
    -------------------- */
 .notice-overlay{ position: fixed; inset: 0; background: rgba(14,47,68,.32); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 18px; }
 .notice-overlay.show{ display: flex; }
-.notice-modal{ width: min(92vw, 420px); background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+.notice-modal{ width: min(92vw, 420px); max-height: 86vh; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; display:flex; flex-direction:column; }
 .notice-modal .notice-head{ padding: 12px 16px; font-weight: 800; letter-spacing: .2px; background: #f6fbfa; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
 .notice-modal .notice-head.warn{ background: #fff7ed; }
 .notice-modal .notice-head.error{ background: #fff1f1; }
-.notice-modal .notice-body{ padding: 14px 16px; font-size: 15px; line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
+.notice-modal .notice-body{ padding: 14px 16px; font-size: 15px; line-height: 1.35; white-space: pre-wrap; word-break: break-word; overflow:auto; -webkit-overflow-scrolling: touch; flex:1 1 auto; }
 .notice-modal .notice-actions{ padding: 12px 16px; display: flex; gap: 10px; justify-content: flex-end; background: #fff; border-top: 1px solid var(--border); }
 .notice-modal .btn-ack{ background: var(--secondary); color: #fff; border: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 18px rgba(58,175,169,.25); font-weight: 700; }
 .notice-modal .btn-ack:hover{ filter: brightness(1.05); }
