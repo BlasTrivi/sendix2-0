@@ -472,7 +472,20 @@ function initLogin(){
   if(forgot){
     forgot.onclick = async (e)=>{
       e.preventDefault();
-      const mail = prompt('Ingresá tu email para restablecer:');
+      let mail = null;
+      if(window.showPrompt){
+        mail = await window.showPrompt({
+          title: 'Recuperar contraseña',
+          message: 'Ingresá tu email para restablecer:',
+          type: 'email',
+          placeholder: 'tu@email.com',
+          okText: 'Enviar',
+          cancelText: 'Cancelar',
+          validate: (v)=> isValidEmail(v)
+        });
+      } else {
+        mail = prompt('Ingresá tu email para restablecer:');
+      }
       if(!mail) return;
       if(!isValidEmail(mail)){ alert('Email inválido.'); return; }
       try{
@@ -2816,13 +2829,80 @@ function openGenericLightbox(clickedImg){
         // Foco en botón
         setTimeout(()=>{ try{ okBtn.focus(); }catch{} }, 0);
       }
+      function openPrompt({ title='Aviso', message='', type='text', placeholder='', defaultValue='', okText='Aceptar', cancelText='Cancelar', validate }={}){
+        return new Promise((resolve)=>{
+          // Estilos
+          headEl.classList.remove('warn','error');
+          titleEl.textContent = title;
+          // Contenido con input
+          bodyEl.innerHTML = '';
+          const msgEl = document.createElement('div');
+          msgEl.textContent = message;
+          const input = document.createElement('input');
+          input.type = type || 'text';
+          input.placeholder = placeholder || '';
+          input.value = defaultValue || '';
+          input.style.width = '100%';
+          input.style.marginTop = '8px';
+          input.autocomplete = 'email';
+          bodyEl.appendChild(msgEl);
+          bodyEl.appendChild(input);
+          // Acciones (OK/Cancel)
+          const actions = okBtn.parentElement;
+          let cancelBtn = document.getElementById('notice-cancel');
+          if(!cancelBtn){
+            cancelBtn = document.createElement('button');
+            cancelBtn.id = 'notice-cancel';
+            cancelBtn.textContent = cancelText;
+            cancelBtn.className = 'btn-ack';
+            cancelBtn.style.background = 'var(--muted)';
+            cancelBtn.style.color = '#fff';
+            cancelBtn.style.opacity = '.85';
+            actions.insertBefore(cancelBtn, okBtn);
+          } else {
+            cancelBtn.textContent = cancelText;
+            cancelBtn.style.display = '';
+          }
+          okBtn.textContent = okText;
+          // Validación en vivo
+          function computeValid(){ return validate? !!validate(input.value.trim()) : true; }
+          function reflect(){ okBtn.disabled = !computeValid(); }
+          reflect();
+          input.addEventListener('input', reflect);
+          // Mostrar overlay
+          overlay.style.display = 'flex';
+          overlay.classList.add('show');
+          setTimeout(()=>{ try{ input.focus(); input.select(); }catch{} }, 0);
+          // Handlers
+          function done(val){ cleanup(); resolve(val); }
+          function cleanup(){
+            try{ input.removeEventListener('input', reflect); }catch{}
+            try{ cancelBtn.onclick = null; }catch{}
+            try{ okBtn.onclick = null; }catch{}
+            try{ overlay.classList.remove('show'); overlay.style.display='none'; }catch{}
+            // Restaurar body a texto simple
+            try{ bodyEl.textContent = ''; }catch{}
+            // Ocultar cancel si no se usa en notice simple
+            try{ cancelBtn.style.display = 'none'; }catch{}
+          }
+          cancelBtn.onclick = ()=> done(null);
+          okBtn.onclick = ()=>{ if(!computeValid()) return; done(input.value.trim()); };
+          // Teclado
+          const keyHandler = (ev)=>{
+            if(ev.key==='Escape'){ ev.preventDefault(); done(null); }
+            if(ev.key==='Enter'){ if(computeValid()){ ev.preventDefault(); done(input.value.trim()); } }
+          };
+          document.addEventListener('keydown', keyHandler, { once: true });
+        });
+      }
       function hideNotice(){ overlay.classList.remove('show'); overlay.style.display='none'; }
       okBtn.addEventListener('click', hideNotice);
       overlay.addEventListener('click', (e)=>{ if(e.target===overlay) hideNotice(); });
       document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideNotice(); });
       // Exponer helpers globales
       window.showNotice = openNotice;
-      window.hideNotice = hideNotice;
+  window.hideNotice = hideNotice;
+  window.showPrompt = openPrompt;
       // Reemplazar alert nativo por modal centrado
       window.alert = (msg)=>{
         try{
