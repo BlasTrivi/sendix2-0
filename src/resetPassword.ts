@@ -127,11 +127,25 @@ async function handleForgot(req: express.Request, res: express.Response){
     }
   });
 
-  // Construcción dinámica del base URL
-  const rawBase = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
-  if(!isProd){ console.log('Reset base URL efectiva:', rawBase); }
-  // Forzar https si estamos detrás de proxy en prod y base no especifica
+  // Construcción robusta del base URL (proxy-aware y con guardarraíl de dominio)
+  function resolveBase(req: express.Request){
+    const configured = (process.env.APP_BASE_URL || '').trim();
+    if(configured) return configured.replace(/\/$/, '');
+    const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+    const host  = (req.get('x-forwarded-host')  || req.get('host') || '').split(',')[0].trim();
+    let base = `${proto}://${host}`;
+    // Si detectamos host de Render, forzar dominio principal (fallback seguro)
+    if(/onrender\.com$/i.test(host)){
+      const forced = (process.env.PREFERRED_BASE_URL || 'https://micarga.com.ar').replace(/\/$/, '');
+      if(!isProd) console.log('Forzando base por host onrender:', forced);
+      return forced;
+    }
+    return base.replace(/\/$/, '');
+  }
+  const rawBase = resolveBase(req);
+  // Normalizar http->https en prod por seguridad
   const appBase = (isProd && rawBase.startsWith('http://')) ? rawBase.replace('http://','https://') : rawBase;
+  if(!isProd){ console.log('Reset base URL efectiva:', appBase); }
   const resetLink = `${appBase.replace(/\/$/,'')}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
   const safeEmail = email.replace(/(.{2}).+(@.*)/,'$1***$2');
