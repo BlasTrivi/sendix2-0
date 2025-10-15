@@ -17,6 +17,13 @@ const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM = process.env.RESEND_FROM || SMTP_FROM; // Permitir un remitente distinto para Resend
+// Normalizar un remitente válido para Resend: requiere dominio verificado
+function getResendFrom(){
+  const from = (RESEND_FROM || '').trim();
+  if(from && /@/.test(from)) return from;
+  const dom = process.env.RESEND_DOMAIN || 'mail.micarga.com.ar';
+  return `no-reply@${dom}`;
+}
 const isProd = process.env.NODE_ENV === 'production';
 
 let resend: Resend | null = null;
@@ -58,7 +65,7 @@ async function sendResetEmail(to: string, html: string){
   // Prioridad: Resend -> SMTP -> simulación
   if(resend){
     try {
-  const r = await resend.emails.send({ from: RESEND_FROM || 'no-reply@micarga', to, subject: 'Recuperación de contraseña - MICARGA', html });
+  const r = await resend.emails.send({ from: getResendFrom(), to, subject: 'Recuperación de contraseña - MICARGA', html });
       if(!isProd) console.log('✅ Email (Resend) enviado id:', r.data?.id || r);
       return { provider: 'resend', id: r.data?.id };
     } catch(err:any){

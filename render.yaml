@@ -15,7 +15,7 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM
-        value: onboarding@resend.dev
+        value: no-reply@mail.micarga.com.ar
       - key: NODE_ENV
         value: production
       - key: PORT
