@@ -678,7 +678,12 @@ async function renderProfile(emailToView){
   function chips(name, options, selected){
     const dis = viewingOther ? 'disabled' : '';
     return `<fieldset class="roles"><legend>${escapeHtml(name)}</legend>`+
-      options.map(opt=>`<label class="radio"><input ${dis} type="checkbox" name="opt-${name}" value="${opt}" ${selected?.includes(opt)?'checked':''}/> ${opt}</label>`).join('')+
+      options.map(o=>{
+        const opt = (typeof o === 'object' && o && 'value' in o) ? o.value : o;
+        const label = (typeof o === 'object' && o && 'label' in o) ? o.label : o;
+        const isChecked = Array.isArray(selected) ? selected.includes(opt) : false;
+        return `<label class="radio"><input ${dis} type="checkbox" name="opt-${name}" value="${opt}" ${isChecked?'checked':''}/> ${label}</label>`;
+      }).join('')+
       `</fieldset>`;
   }
   // Estructura de formulario
@@ -699,7 +704,12 @@ async function renderProfile(emailToView){
     html += inputRow('Email','email', me.email||'', 'email');
     html += inputRow('DNI','dni', perfil.dni||'');
     html += chips('Tipo de carga', ['Contenedor','Granel','Carga general','Flete'], perfil.cargas||[]);
-    html += chips('Tipo de vehículo', ['Liviana','Mediana','Pesada'], perfil.vehiculos||[]);
+    // Mostrar etiquetas masculinas con valores femeninos para compatibilidad con backend
+    html += chips('Tipo de vehículo', [
+      { value: 'Liviana', label: 'Liviano' },
+      { value: 'Mediana', label: 'Mediano' },
+      { value: 'Pesada', label: 'Pesado' }
+    ], perfil.vehiculos||[]);
     html += checkboxRow('Seguro al día','seguroOk', !!perfil.seguroOk);
     html += inputRow('Tipo de seguro','tipoSeguro', perfil.tipoSeguro||'');
     html += checkboxRow('Habilitación SENASA','senasa', !!perfil.senasa);
@@ -772,18 +782,25 @@ async function renderUsers(){
   const clearBtn = document.getElementById('users-clear');
   if(!ul) return;
 
-  // Mostrar/ocultar filtros de transportista
+    // Mostrar/ocultar filtros de transportista y vehículos
   const currentRole = roleSel?.value || 'all';
   if(boxTransp) boxTransp.style.display = currentRole==='transportista' ? 'block' : 'none';
+    if(vehiculosIn) vehiculosIn.style.display = currentRole==='transportista' ? 'block' : 'none';
 
   // Cargar usuarios
   let users = [];
   try{
+    const vehiculosParam = (vehiculosIn?.value || '')
+      .split(',')
+      .map(s=>s.trim())
+      .filter(Boolean)
+      .map(v=>({Liviano:'Liviana', Mediano:'Mediana', Pesado:'Pesada'}[v] || v))
+      .join(',');
     const params = {
       role: currentRole==='all' ? '' : currentRole,
       q: qInput?.value?.trim() || '',
       cargas: cargasIn?.value || '',
-      vehiculos: vehiculosIn?.value || '',
+      vehiculos: vehiculosParam,
       seguroOk: seguroChk?.checked ? '1' : '',
       senasa: senasaChk?.checked ? '1' : '',
       imo: imoChk?.checked ? '1' : '',
@@ -803,7 +820,8 @@ async function renderUsers(){
   // Render
   ul.innerHTML = users.length ? users.map(u=>{
     const initials = (u.name||'?').split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase();
-    const sub = u.role==='empresa' ? (u.phone? `Tel: ${escapeHtml(u.phone)}` : '') : (u.role==='transportista' ? (u.perfil? `${(u.perfil.cargas||[]).join('/') || ''} · ${(u.perfil.vehiculos||[]).join('/') || ''}` : '') : '');
+  const vehiculoLabel = v=>({Liviana:'Liviano',Mediana:'Mediano',Pesada:'Pesado'}[v]||v);
+  const sub = u.role==='empresa' ? (u.phone? `Tel: ${escapeHtml(u.phone)}` : '') : (u.role==='transportista' ? (u.perfil? `${(u.perfil.cargas||[]).join('/') || ''} · ${(u.perfil.vehiculos||[]).map(vehiculoLabel).join('/') || ''}` : '') : '');
     const extras = u.role==='transportista' && u.perfil ? `
       <div class="muted small">DNI: ${escapeHtml(u.perfil.dni||'-')} · Alcance: ${escapeHtml(u.perfil.alcance||'-')} · Seguro: ${u.perfil.seguroOk?'OK':'No'}</div>
     ` : '';
