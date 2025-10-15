@@ -801,61 +801,59 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
    Login mejorado y header alineado
    -------------------- */
 .login-box {
-  max-width: 370px;
-  margin: 48px auto 0 auto;
+  max-width: 420px;
+  margin: clamp(18px, 4vh, 48px) auto 0 auto;
   background: var(--card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: 38px 32px 32px 32px;
+  padding: clamp(20px, 3.2vw, 38px) clamp(16px, 3vw, 32px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 18px;
 }
 .login-avatar {
-  gap: 18px; /* más aire entre campos */
-  height: 72px;
+  gap: 12px; /* más aire entre campos */
+  height: 64px;
   border-radius: 50%;
   gap: 10px; /* separación clara entre título y campo */
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 12px rgba(58,175,169,.10);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 .login-avatar img {
-  padding: 14px 16px; /* campos más cómodos */
-  line-height: 1.35;
-  width: 54px;
-  height: 54px;
-  margin: 16px auto 0 0; /* más separación del card, bien abajo */
+  width: 48px;
+  height: 48px;
+  margin: 8px auto 0 0; /* más separación del card, bien abajo */
   border-radius: 50%;
 }
 .login-title {
-  font-size: 1.7rem;
+  font-size: clamp(1.3rem, 3.8vw, 1.7rem);
   font-weight: 700;
-  min-height: 140px;
-  padding: 12px; /* un poco más de aire dentro del fieldset */
+  min-height: 0;
+  padding: 6px; /* un poco más de aire dentro del fieldset */
   margin: 0;
   text-align: center;
 }
 .login-desc {
   color: var(--muted);
-  font-size: 1rem;
+  font-size: .95rem;
   text-align: center;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 .login-form {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 .login-btn {
   width: 100%;
-  margin-top: 10px;
-  font-size: 1.1rem;
-  padding: 14px 0;
+  margin-top: 6px;
+  font-size: 1rem;
+  padding: 12px 0;
 }
 .brand-left {
   display: flex;
@@ -881,15 +879,16 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
 }
 @media (max-width: 759.98px){
   .login-form .login-inline{ flex-direction:column; }
-  .login-form .login-inline-field{ width:100%; }
+  .login-form .login-inline-field{ width:100%; display:grid; grid-template-columns: 24px 1fr; align-items:center; }
+  .login-form .login-inline-field span{ font-size: 18px; }
 }
 @media (max-width: 600px) {
   .login-box {
-    max-width: 98vw;
-    padding: 22px 8px 18px 8px;
+    max-width: min(92vw, 480px);
+    padding: 16px 10px 12px 10px;
   }
   .login-title {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
   }
   .topbar-inner {
     padding: 8px 4px;
@@ -901,8 +900,8 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
     gap: 6px;
   }
   .logo {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
   }
 }
 

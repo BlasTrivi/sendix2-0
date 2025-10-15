@@ -214,9 +214,11 @@ async function tryRestoreSession(){
     if(me && me.user){ setSession('', me.user); }
   }catch{}
   // Inicializar socket después de intentar restaurar sesión
-  ensureSocket();
-  // Y refrescar badge con la sesión restaurada
-  scheduleNavUnreadRefresh(50);
+  if(state.user){
+    ensureSocket();
+    // Y refrescar badge con la sesión restaurada
+    scheduleNavUnreadRefresh(50);
+  }
 }
 
 function isValidEmail(email){
@@ -273,7 +275,9 @@ function markThreadRead(threadId){
 
 // Unread helpers (comparten cálculo entre vistas)
 async function getUnreadMapForProposals(proposals){
+  if(!state.user) return { unreadMap: {}, total: 0 };
   const threads = Array.isArray(proposals) ? proposals : [];
+  if(threads.length===0){ return { unreadMap: {}, total: 0 }; }
   let unreadMap = {};
   let total = 0;
   try{
@@ -312,6 +316,7 @@ function setBadgeValue(idOrEl, value){
 
 async function refreshNavUnreadBadge(){
   try{
+    if(!state.user) return;
     const threads = threadsForCurrentUser();
     const { total } = await getUnreadMapForProposals(threads);
     updateNavUnreadBadge(total);
