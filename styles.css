@@ -557,11 +557,11 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   }
   /* El scroll principal deja espacio para el compositor fijo */
   body.route-conversaciones.chat-has-active #view-container{
-    padding-bottom: calc(var(--bbar-h) + var(--safe-bottom) + var(--composer-h, 96px) + 16px);
+    padding-bottom: calc(var(--bbar-h) + var(--safe-bottom) + var(--browser-ui-bottom-gap));
   }
   /* El historial no necesita espacio extra grande cuando el compositor es fijo */
   body.route-conversaciones.chat-has-active .chat-box.big{
-    padding-bottom: 16px;
+    padding-bottom: calc(var(--composer-h, 96px) + var(--bbar-h) + var(--safe-bottom) + var(--browser-ui-bottom-gap) + 12px);
   }
 }
 
