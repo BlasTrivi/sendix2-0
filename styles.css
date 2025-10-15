@@ -878,11 +878,13 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   .login-form .login-inline-field input{ width:100%; }
 }
 @media (max-width: 759.98px){
+  .login-form{ gap:8px; }
   .login-form .login-inline{ flex-direction:column; gap:4px !important; }
   /* Usar flex para evitar que el texto del label cree una fila extra en grid */
-  .login-form .login-inline-field{ width:100%; display:flex; align-items:center; gap:8px; }
-  .login-form .login-inline-field > span{ font-size: 18px; flex:0 0 22px; margin-right:0; display:inline-flex; justify-content:center; }
-  .login-form .login-inline-field input{ flex:1 1 auto; width:auto; padding:9px 12px; line-height:1.2; min-width:0; }
+  .login-form .login-inline-field{ width:100%; display:flex; align-items:center; gap:8px; margin:0; padding:0; line-height:1.1; font-size:14px; }
+  .login-form .login-inline-field > span{ font-size: 18px; flex:0 0 22px; margin-right:0; display:inline-flex; justify-content:center; line-height:1; }
+  .login-form .login-inline-field input{ flex:1 1 auto; width:auto; padding:9px 12px; line-height:1.2; min-width:0; margin:0; }
+  .login-form .login-inline-field .field-label{ font-weight:700; line-height:1.2; }
 }
 @media (max-width: 600px) {
   .login-box {
