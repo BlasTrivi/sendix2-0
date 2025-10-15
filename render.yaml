@@ -12,6 +12,8 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
+      - key: APP_BASE_URL
+        value: https://micarga.com.ar
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM

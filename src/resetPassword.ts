@@ -129,6 +129,7 @@ async function handleForgot(req: express.Request, res: express.Response){
 
   // Construcción dinámica del base URL
   const rawBase = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  if(!isProd){ console.log('Reset base URL efectiva:', rawBase); }
   // Forzar https si estamos detrás de proxy en prod y base no especifica
   const appBase = (isProd && rawBase.startsWith('http://')) ? rawBase.replace('http://','https://') : rawBase;
   const resetLink = `${appBase.replace(/\/$/,'')}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
