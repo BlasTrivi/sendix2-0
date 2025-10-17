@@ -1159,6 +1159,7 @@ async function renderLoads(onlyMine=false){
     <li>
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       ${renderLoadSummary(l)}
+      ${renderLoadPreview(l)}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row"><button class="btn btn-ghost" data-view="${l.id}">Ver propuestas</button></div>
     </li>`).join('') : '<li class="muted">No hay cargas.</li>';
@@ -1510,6 +1511,7 @@ async function renderMyLoadsWithProposals(focus){
     return `<li id="load-${l.id}">
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       ${renderLoadSummary(l)}
+      ${renderLoadPreview(l)}
       ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>4? `<span class="muted">+${l.adjuntos.length-4} más</span>`:''}</div>`:''}
       ${approvedBlock ? `<div class="mt"><strong>Envío seleccionado</strong></div>${approvedBlock}` : ''}
@@ -1573,6 +1575,7 @@ async function renderOffers(){
             <span>${new Date(l.createdAt).toLocaleDateString()}</span>
           </div>
           ${renderLoadSummary(l)}
+          ${renderLoadPreview(l)}
           ${stopsLine}
           ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
           ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
@@ -1625,6 +1628,7 @@ function renderMyProposals(){
         <span class="badge">${badge}</span>
       </div>
       ${renderLoadSummary(l)}
+      ${renderLoadPreview(l)}
       ${stopsLine}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
@@ -1656,6 +1660,7 @@ function renderShipments(){
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
       ${renderLoadSummary(l)}
+      ${renderLoadPreview(l)}
       ${stopsLine}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
@@ -3078,6 +3083,44 @@ function renderLoadSummary(l){
   // autor
   if(l.owner){ parts.push(`<span class="kv">👤 Por: <b>${escapeHtml(String(l.owner))}<\/b><\/span>`); }
   return `<div class="load-summary">${parts.join('')}<\/div>`;
+}
+
+// Resumen de carga detallado (igual al generado en "Publicar nueva carga")
+function renderLoadPreview(l){
+  if(!l) return '';
+  const tipo = l.tipo || '';
+  const extras = [];
+  if(tipo==='Contenedor'){
+    if(l.meta?.containerTipo) extras.push(`<span>🚢 <b>Contenedor:</b> ${escapeHtml(l.meta.containerTipo)}</span>`);
+  } else if(tipo==='Granel'){
+    if(l.meta?.granelTipo) extras.push(`<span>🪨 <b>Tipo:</b> ${escapeHtml(l.meta.granelTipo)}</span>`);
+    if(l.meta?.producto) extras.push(`<span>🏷️ <b>Producto:</b> ${escapeHtml(l.meta.producto)}</span>`);
+    if(l.meta?.requisitos) extras.push(`<span>⚙️ <b>Requisitos:</b> ${escapeHtml(l.meta.requisitos)}</span>`);
+  } else if(tipo==='Carga general'){
+    if(l.meta?.camionCompleto) extras.push(`<span>🚚 <b>Camión completo:</b> ${escapeHtml(l.meta.camionCompleto)}</span>`);
+    if(l.meta?.presentacion) extras.push(`<span>📦 <b>Presentación:</b> ${escapeHtml(l.meta.presentacion)}</span>`);
+    if(l.meta?.cargaPeligrosa) extras.push(`<span>☣️ <b>Peligrosa:</b> ${escapeHtml(l.meta.cargaPeligrosa)}</span>`);
+  }
+  const fechaTxt = l.fechaHora ? new Date(l.fechaHora).toLocaleString() : (l.fecha || '');
+  const fechaDescTxt = l.meta?.fechaHoraDescarga ? new Date(l.meta.fechaHoraDescarga).toLocaleString() : '';
+  const stopsHtml = (Array.isArray(l.meta?.stops) && l.meta.stops.length)
+    ? `<span>🧭 <b>Paradas:</b> ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</span><br>` : '';
+  return `
+    <div class="load-preview">
+      <strong>Resumen de carga:</strong><br>
+      <span>📍 <b>Origen:</b> ${escapeHtml(l.origen||'-')}</span><br>
+      <span>🎯 <b>Destino:</b> ${escapeHtml(l.destino||'-')}</span><br>
+      <span>📦 <b>Tipo:</b> ${escapeHtml(tipo||'-')}</span><br>
+      ${l.cantidad? `<span>🔢 <b>Cantidad:</b> ${escapeHtml(String(l.cantidad))} ${escapeHtml(l.unidad||'')}</span><br>`:''}
+      ${l.dimensiones? `<span>📐 <b>Dimensiones:</b> ${escapeHtml(l.dimensiones)}</span><br>`:''}
+      ${(l.peso||l.volumen)? `<span>⚖️ <b>Peso:</b> ${escapeHtml(String(l.peso||'-'))} kg · 🧪 <b>Volumen:</b> ${escapeHtml(String(l.volumen||'-'))} m³</span><br>`:''}
+      ${fechaTxt? `<span>📅 <b>Fecha:</b> ${escapeHtml(fechaTxt)}</span><br>`:''}
+      ${fechaDescTxt? `<span>📅 <b>Descarga estimada:</b> ${escapeHtml(fechaDescTxt)}</span><br>`:''}
+      ${extras.join('<br>')}${extras.length?'<br>':''}
+      ${stopsHtml}
+      ${l.descripcion? `<span>📝 <b>Comentarios:</b> ${escapeHtml(l.descripcion)}</span><br>`:''}
+    </div>
+  `;
 }
 // Reset password UI
 function startResetFlow(token){
