@@ -256,9 +256,12 @@
             <label><span>🎯</span> Destino
               <input name="destino" id="input-destino" placeholder="Ciudad, Provincia/Estado, País" required autocomplete="off" />
             </label>
-            <label class="opt-parada"><span>➕</span> Parada intermedia (opcional)
-              <input name="parada" placeholder="Ciudad / Punto" />
-            </label>
+            <label class="opt-parada"><span>➕</span> Paradas intermedias (opcional)</label>
+            <div class="row" id="stops-add-row" style="gap:8px; align-items:center">
+              <input id="stop-input" placeholder="Ciudad / Punto" />
+              <button type="button" class="btn" id="stop-add" title="Agregar">+</button>
+            </div>
+            <ul id="stops-list" class="list small" aria-live="polite"></ul>
 
             <!-- Variante Contenedor -->
             <div class="publish-variant" data-variant="Contenedor">

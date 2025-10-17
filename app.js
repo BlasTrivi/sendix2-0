@@ -1175,8 +1175,13 @@ function initPublishForm(){
   const typeButtons = document.querySelectorAll('.publish-types .pt-btn');
   const tipoHidden = document.getElementById('publish-tipo');
   const variants = document.querySelectorAll('.publish-variant');
+  // Múltiples paradas intermedias
+  const stopInput = document.getElementById('stop-input');
+  const stopAddBtn = document.getElementById('stop-add');
+  const stopsList = document.getElementById('stops-list');
   // Declarar antes de cualquier llamada a updatePreview (que ocurre dentro de setVariant)
   let pendingFiles = [];
+  let stops = [];
   function setVariant(t){
     variants.forEach(v=>{
       const active = v.dataset.variant===t;
@@ -1206,7 +1211,8 @@ function initPublishForm(){
       if(data.presentacion) extras.push(`<span>📦 <b>Presentación:</b> ${escapeHtml(data.presentacion)}</span>`);
       if(data.cargaPeligrosa) extras.push(`<span>☣️ <b>Peligrosa:</b> ${escapeHtml(data.cargaPeligrosa)}</span>`);
     }
-    if(data.origen || data.destino || tipo || data.cantidad || data.fechaHora || data.descripcion || pendingFiles.length || extras.length) {
+    const stopsHtml = (stops.length ? `<span>🧭 <b>Paradas:</b> ${stops.map(s=>escapeHtml(s)).join(' → ')}</span><br>` : '');
+    if(data.origen || data.destino || tipo || data.cantidad || data.fechaHora || data.descripcion || pendingFiles.length || extras.length || stops.length) {
       preview.style.display = 'block';
       preview.innerHTML = `
         <strong>Resumen de carga:</strong><br>
@@ -1219,6 +1225,7 @@ function initPublishForm(){
         ${data.fechaHora? `<span>📅 <b>Fecha:</b> ${new Date(data.fechaHora).toLocaleString()}</span><br>`:''}
         ${data.fechaHoraDescarga? `<span>📅 <b>Descarga estimada:</b> ${new Date(data.fechaHoraDescarga).toLocaleString()}</span><br>`:''}
         ${extras.join('<br>')}${extras.length?'<br>':''}
+        ${stopsHtml}
         ${data.descripcion? `<span>📝 <b>Comentarios:</b> ${escapeHtml(data.descripcion)}</span><br>`:''}
         ${pendingFiles.length? `<div class="attachments">${pendingFiles.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview}" alt="adjunto"/>`:`<span class="file-chip">${escapeHtml(a.name)}</span>`).join('')} ${pendingFiles.length>4? `<span class="muted">+${pendingFiles.length-4} más</span>`:''}</div>`:''}
       `;
@@ -1226,6 +1233,44 @@ function initPublishForm(){
       preview.style.display = 'none';
       preview.innerHTML = '';
     }
+  }
+  function renderStops(){
+    if(!stopsList) return;
+    stopsList.innerHTML = stops.length ? stops.map((s,idx)=>`
+      <li class="row" data-stop-idx="${idx}">
+        <div class="muted" style="flex:1">${escapeHtml(s)}</div>
+        <div class="row" style="gap:6px">
+          <button type="button" class="btn" data-move-up title="Subir" ${idx===0?'disabled':''}>↑</button>
+          <button type="button" class="btn" data-move-down title="Bajar" ${idx===stops.length-1?'disabled':''}>↓</button>
+          <button type="button" class="btn btn-ghost" data-del title="Quitar">✕</button>
+        </div>
+      </li>
+    `).join('') : '';
+    // Wire botones
+    stopsList.querySelectorAll('[data-del]')?.forEach(btn=> btn.onclick = ()=>{
+      const li = btn.closest('li'); const i = Number(li?.dataset.stopIdx||'-1');
+      if(i>=0){ stops.splice(i,1); renderStops(); updatePreview(); }
+    });
+    stopsList.querySelectorAll('[data-move-up]')?.forEach(btn=> btn.onclick = ()=>{
+      const li = btn.closest('li'); const i = Number(li?.dataset.stopIdx||'-1');
+      if(i>0){ const t=stops[i-1]; stops[i-1]=stops[i]; stops[i]=t; renderStops(); updatePreview(); }
+    });
+    stopsList.querySelectorAll('[data-move-down]')?.forEach(btn=> btn.onclick = ()=>{
+      const li = btn.closest('li'); const i = Number(li?.dataset.stopIdx||'-1');
+      if(i>=0 && i<stops.length-1){ const t=stops[i+1]; stops[i+1]=stops[i]; stops[i]=t; renderStops(); updatePreview(); }
+    });
+  }
+  if(stopAddBtn && stopInput){
+    const add = ()=>{
+      const v = (stopInput.value||'').trim();
+      if(!v) return;
+      stops.push(v);
+      stopInput.value='';
+      renderStops();
+      updatePreview();
+    };
+    stopAddBtn.onclick = add;
+    stopInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); add(); } });
   }
   form.addEventListener('input', updatePreview);
   function renderFileCards(){
@@ -1346,6 +1391,9 @@ function initPublishForm(){
       load.meta.cargaPeligrosa = data.cargaPeligrosa||'';
       load.meta.senasa = data.senasa||'';
     }
+    if(stops.length){
+      load.meta.stops = [...stops];
+    }
     try{
       await addLoad(load);
       form.reset();
@@ -1354,7 +1402,9 @@ function initPublishForm(){
       updatePreview();
       // limpiar previews
       pendingFiles = [];
+      stops = [];
       if(filePreviews){ filePreviews.innerHTML=''; filePreviews.style.display='none'; }
+      renderStops();
   alert('¡Publicada! Esperá postulaciones que MICARGA moderará.');
       navigate('mis-cargas');
     }catch(err){
@@ -1369,6 +1419,7 @@ function initPublishForm(){
     }
   });
   updatePreview();
+  renderStops();
 }
 
 // --- Lightbox publicación ---
@@ -1506,6 +1557,9 @@ async function renderOffers(){
     ? offers.map(l=>{
         const alreadyApplied = state.proposals.some(p=>p.loadId===l.id && p.carrier===state.user?.name);
         const myProposal = state.proposals.find(p=>p.loadId===l.id && p.carrier===state.user?.name);
+        const stopsLine = (Array.isArray(l.meta?.stops) && l.meta.stops.length)
+          ? `<div class="muted">🧭 Paradas intermedias: ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</div>`
+          : '';
         const formHtml = alreadyApplied
           ? `<div class="row"><span class="badge">Ya te postulaste</span>${myProposal? `<span class="price-tag">ARS $${Number(myProposal.price||0).toLocaleString('es-AR')}</span>`:''}</div>`
           : `<form class="row" data-apply="${l.id}">
@@ -1519,6 +1573,7 @@ async function renderOffers(){
             <span>${new Date(l.createdAt).toLocaleDateString()}</span>
           </div>
           ${renderLoadSummary(l)}
+          ${stopsLine}
           ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
           ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
           ${formHtml}
@@ -1559,6 +1614,9 @@ function renderMyProposals(){
   const mine = state.proposals.filter(p=>p.carrier===state.user?.name);
   ul.innerHTML = mine.length ? mine.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
+    const stopsLine = (Array.isArray(l?.meta?.stops) && l.meta.stops.length)
+      ? `<div class="muted">🧭 Paradas intermedias: ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</div>`
+      : '';
     const badge = p.status==='approved' ? 'Aprobada' : p.status==='rejected' ? 'Rechazada' : p.status==='filtered' ? 'Filtrada' : 'En revisión';
     const canChat = p.status==='approved';
     return `<li>
@@ -1567,6 +1625,7 @@ function renderMyProposals(){
         <span class="badge">${badge}</span>
       </div>
       ${renderLoadSummary(l)}
+      ${stopsLine}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row">
@@ -1588,12 +1647,16 @@ function renderShipments(){
   const mine = state.proposals.filter(p=>p.carrier===state.user?.name && p.status==='approved');
   ul.innerHTML = mine.length ? mine.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
+    const stopsLine = (Array.isArray(l?.meta?.stops) && l.meta.stops.length)
+      ? `<div class="muted">🧭 Paradas intermedias: ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</div>`
+      : '';
     return `<li>
       <div class="row">
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
       ${renderLoadSummary(l)}
+      ${stopsLine}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row"><span class="muted">Precio</span><strong>$${p.price.toLocaleString('es-AR')}</strong></div>
@@ -2999,6 +3062,10 @@ function renderLoadSummary(l){
   if(l.meta?.presentacion){ tipoLine += ` · Pres.: ${escapeHtml(l.meta.presentacion)}`; }
   if(l.meta?.producto){ tipoLine += ` · Prod.: ${escapeHtml(l.meta.producto)}`; }
   parts.push(`<span class="kv">${tipoLine}<\/span>`);
+  // paradas intermedias
+  if(Array.isArray(l.meta?.stops) && l.meta.stops.length){
+    parts.push(`<span class=\"kv\">🧭 Paradas: <b>${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}<\/b><\/span>`);
+  }
   // cantidad
   if(l.cantidad){ parts.push(`<span class="kv">🔢 Cant.: <b>${escapeHtml(String(l.cantidad))} ${escapeHtml(l.unidad||'')}<\/b><\/span>`); }
   // fecha
