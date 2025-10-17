@@ -2488,7 +2488,6 @@ function renderTracking(){
   // sincronizar en segundo plano
   (async()=>{ try{ await syncProposalsFromAPI(); }catch{} })();
   const hint = document.getElementById('tracking-role-hint');
-  const actions = document.getElementById('tracking-actions');
   const onlyActive = document.getElementById('tracking-only-active');
   const search = document.getElementById('tracking-search');
 
@@ -2517,10 +2516,12 @@ function renderTracking(){
     });
   }
 
+  // No autoseleccionar; mantener selección solo cuando el usuario hace clic en "Ver"
   if(!filtered.length){
     state.activeShipmentProposalId = null;
-  } else if(!state.activeShipmentProposalId || !filtered.find(p=>p.id===state.activeShipmentProposalId)){
-    state.activeShipmentProposalId = filtered[0].id;
+  } else if(state.activeShipmentProposalId && !filtered.find(p=>p.id===state.activeShipmentProposalId)){
+    // Si la selección actual ya no está en el filtro, limpiar
+    state.activeShipmentProposalId = null;
   }
 
   const ul = document.getElementById('tracking-list');
@@ -2530,7 +2531,18 @@ function renderTracking(){
     const threadId = threadIdFor(p);
     const unread = computeUnread(threadId);
     const chipClass = (p.shipStatus==='entregado') ? 'ok' : (p.shipStatus==='en-camino'?'':'warn');
-    return `<li>
+    const isActive = state.activeShipmentProposalId===p.id;
+    // Contenedor de detalle inline (mapa + acciones) solo si activo
+    const detail = isActive ? `
+      <div class="map-box" style="width:100%;max-width:700px;margin:12px 0 8px 0;position:relative;">
+        <div id="tracking-map" data-proposal="${p.id}" style="width:100%;height:180px;"></div>
+      </div>
+      <div class="actions" data-actions-for="${p.id}">
+        ${state.user?.role==='transportista' && p.carrier===state.user.name ? `<button class="btn" data-advance>Avanzar estado</button><button class="btn btn-ghost" data-reset>Reiniciar</button>`: ''}
+        <button class="btn" data-open-chat="${p.id}">Abrir chat</button>
+      </div>
+    ` : '';
+    return `<li data-prop-item="${p.id}">
       <div class="row">
         <div class="title">${l?.origen} → ${l?.destino}</div>
         <span class="chip ${chipClass}">${p.shipStatus||'pendiente'}</span>
@@ -2538,18 +2550,24 @@ function renderTracking(){
       <div class="row subtitle">
   <div>Emp: ${l?.owner} · Transp: ${p.carrier} · Dim: ${l?.dimensiones||'-'}</div>
         <div class="row" style="gap:8px">
-          <button class="btn" data-select="${p.id}">Ver</button>
+          <button class="btn" data-select="${p.id}" aria-expanded="${isActive?'true':'false'}">${isActive?'Ocultar':'Ver'}</button>
           <button class="btn" data-chat="${p.id}">Chat ${unread?`<span class='badge-pill'>${unread}</span>`:''}</button>
         </div>
       </div>
+      ${detail}
     </li>`;
   }).join('') : '<li class="muted">No hay envíos para mostrar.</li>';
-  ul.querySelectorAll('[data-select]').forEach(b=> b.onclick = ()=>{ state.activeShipmentProposalId = b.dataset.select; save(); renderTracking(); });
+  ul.querySelectorAll('[data-select]').forEach(b=> b.onclick = ()=>{ 
+    const id = b.dataset.select; 
+    state.activeShipmentProposalId = (state.activeShipmentProposalId===id) ? null : id; 
+    save(); 
+    renderTracking(); 
+  });
   ul.querySelectorAll('[data-chat]').forEach(b=> b.onclick = ()=>openChatByProposalId(b.dataset.chat));
 
-  // Tracking visual (SVG animado)
+  // Tracking visual (SVG animado) inline dentro del item activo
   const current = state.proposals.find(p=>p.id===state.activeShipmentProposalId);
-  const mapBox = document.getElementById('tracking-map');
+  const mapBox = current ? ul.querySelector(`#tracking-map[data-proposal="${current.id}"]`) : null;
   if(mapBox){
     mapBox.innerHTML = '';
     if(current){
@@ -2648,39 +2666,48 @@ function renderTracking(){
     }
   }
 
-  const canEdit = state.user?.role==='transportista' && !!current && current.carrier===state.user.name;
-  if(actions) actions.style.display = canEdit ? 'flex' : 'none';
-
-  const btnAdvance = document.querySelector('[data-advance]');
-  if(btnAdvance) btnAdvance.onclick = ()=>{
-    if(!current) return;
-    const prev = current.shipStatus || 'pendiente';
-    const idx = SHIP_STEPS.indexOf(prev);
-    const next = SHIP_STEPS[Math.min(idx+1, SHIP_STEPS.length-1)];
-    // Persistir en backend (normalizado)
-    (async()=>{
-      try{ await API.updateProposal(current.id, { shipStatus: String(next).replace(/-/g,'_') }); await syncProposalsFromAPI(); }
-      catch{
-        current.shipStatus = next; state.trackingStep = next; save();
-        if(next==='entregado' && prev!=='entregado'){ notifyDelivered(current); }
-      }
-      renderTracking();
-    })();
-    // Refrescar 'mis-cargas' si está visible para que muestre entregado
-    const currentRoute2 = (location.hash.replace('#','')||'home');
-    if(currentRoute2==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
-  };
-  const btnReset = document.querySelector('[data-reset]');
-  if(btnReset) btnReset.onclick = ()=>{
-    if(!current) return;
-    current.shipStatus = 'pendiente';
-    state.trackingStep = current.shipStatus;
-    save(); renderTracking();
-    const currentRoute3 = (location.hash.replace('#','')||'home');
-    if(currentRoute3==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
-  };
-  const btnOpenChat = document.getElementById('tracking-open-chat');
-  if(btnOpenChat) btnOpenChat.onclick = ()=>{ if(current) openChatByProposalId(current.id); };
+  // Acciones inline del item activo
+  const actionsBox = current ? ul.querySelector(`[data-actions-for="${current.id}"]`) : null;
+  if(actionsBox){
+    const canEdit = state.user?.role==='transportista' && current.carrier===state.user.name;
+    // Avanzar estado
+    const btnAdvance = actionsBox.querySelector('[data-advance]');
+    if(btnAdvance) btnAdvance.onclick = ()=>{
+      const prev = current.shipStatus || 'pendiente';
+      const idx = SHIP_STEPS.indexOf(prev);
+      const next = SHIP_STEPS[Math.min(idx+1, SHIP_STEPS.length-1)];
+      (async()=>{
+        try{ await API.updateProposal(current.id, { shipStatus: String(next).replace(/-/g,'_') }); await syncProposalsFromAPI(); }
+        catch{
+          current.shipStatus = next; state.trackingStep = next; save();
+          if(next==='entregado' && prev!=='entregado'){ notifyDelivered(current); }
+        }
+        renderTracking();
+        const r = (location.hash.replace('#','')||'home');
+        if(r==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
+      })();
+    };
+    // Reiniciar
+    const btnReset = actionsBox.querySelector('[data-reset]');
+    if(btnReset) btnReset.onclick = ()=>{
+      current.shipStatus = 'pendiente';
+      state.trackingStep = current.shipStatus;
+      save(); renderTracking();
+      const r = (location.hash.replace('#','')||'home');
+      if(r==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
+    };
+    // Abrir chat
+    const btnOpen = actionsBox.querySelector('[data-open-chat]');
+    if(btnOpen) btnOpen.onclick = ()=> openChatByProposalId(current.id);
+    // Mostrar/ocultar acciones según permisos
+    actionsBox.style.display = 'flex';
+    if(!canEdit){
+      const adv = actionsBox.querySelector('[data-advance]');
+      const rst = actionsBox.querySelector('[data-reset]');
+      if(adv) adv.style.display='none';
+      if(rst) rst.style.display='none';
+    }
+  }
   if(onlyActive) onlyActive.onchange = ()=>renderTracking();
   if(search) search.oninput = ()=>renderTracking();
 }
