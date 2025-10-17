@@ -2652,6 +2652,8 @@ function renderTracking(){
           </defs>
           <rect x="40" y="90" width="520" height="12" rx="6" fill="#d0e6f7" stroke="#b3cde0" />
           <polyline points="40,96 120,60 200,96 280,60 360,96 440,60 560,96" fill="none" stroke="#3AAFA9" stroke-width="4" stroke-dasharray="8 6" />
+          <!-- Path suave para animación -->
+          <path id="tracking-path" d="M40,96 C80,60 160,132 200,96 S320,60 360,96 S520,132 560,96" fill="none" stroke="transparent" stroke-width="1" />
           <circle class="tracking-step ${idxTarget>0?'done':idxTarget===0?'active':''}" cx="40" cy="96" r="16" fill="#fff" stroke="#0E2F44" stroke-width="3" />
           <circle class="tracking-step ${idxTarget>1?'done':idxTarget===1?'active':''}" cx="200" cy="96" r="16" fill="#fff" stroke="#0E2F44" stroke-width="3" />
           <circle class="tracking-step ${idxTarget>2?'done':idxTarget===2?'active':''}" cx="360" cy="96" r="16" fill="#fff" stroke="#0E2F44" stroke-width="3" />
@@ -2678,57 +2680,69 @@ function renderTracking(){
       // Animación JS para mover el camión
       setTimeout(()=>{
         const truck = document.getElementById('tracking-truck');
-        if(truck){
-          const steps = [40, 200, 360, 560];
+        const path = document.getElementById('tracking-path');
+        if(truck && path){
           const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          // Animar desde el paso previo guardado hacia el actual (por envío)
+          const totalLen = path.getTotalLength();
+          const anchorsX = [40,200,360,560];
+          // Buscar longitud aprox. para cada x objetivo sobre el path (binary search)
+          function lengthAtX(targetX){
+            let lo = 0, hi = totalLen, it=0;
+            while(lo<=hi && it<32){
+              it++;
+              const mid = (lo+hi)/2;
+              const p = path.getPointAtLength(mid);
+              if(Math.abs(p.x - targetX) < 0.5) return mid;
+              if(p.x < targetX) lo = mid + 0.5; else hi = mid - 0.5;
+            }
+            return Math.max(0, Math.min(totalLen, lo));
+          }
+          const anchorLens = anchorsX.map(lengthAtX);
+          // Índices de inicio/fin por estado
           const lastId = mapBox.dataset.prevId || '';
           let startIdx = parseInt(mapBox.dataset.prevIdx||'0');
           if(lastId !== current.id) startIdx = 0;
           const endIdx = idxTarget < 0 ? 0 : idxTarget;
-          const startX = steps[Math.max(0, Math.min(steps.length-1, startIdx))];
-          const endX = steps[Math.max(0, Math.min(steps.length-1, endIdx))];
-          // Guardar como nuevo punto de partida para la siguiente transición
+          const startLen = anchorLens[Math.max(0, Math.min(anchorLens.length-1, startIdx))];
+          const endLen = anchorLens[Math.max(0, Math.min(anchorLens.length-1, endIdx))];
+          // Guardar estado para próximas transiciones
           mapBox.dataset.prevIdx = String(endIdx);
           mapBox.dataset.prevId = current.id;
 
-          const pathY = 96; // línea central de los hitos
-          const amplitude = reduceMotion ? 6 : 18; // altura de la onda senoidal
-          const cycles = reduceMotion ? 1 : 2.2; // cantidad de ondas en el trayecto
-          const totalFrames = reduceMotion ? 30 : 60;
-          let frame = 0;
-          const easeInOut = (t)=> t<0.5 ? 2*t*t : -1+(4-2*t)*t; // suavizado
-          function animate(){
-            frame++;
-            const t = Math.min(frame/totalFrames, 1);
-            const te = easeInOut(t);
-            const x = startX + (endX-startX)*te;
-            const yOffset = amplitude * Math.sin(2*Math.PI*cycles*te);
-            const y = pathY + yOffset;
-            // Rotación leve según la pendiente de la onda: dy/dx
-            let angle = 0;
-            if(!reduceMotion){
-              const dYdX = (amplitude * (2*Math.PI*cycles) * Math.cos(2*Math.PI*cycles*te)) / Math.max(1, Math.abs(endX-startX));
-              angle = Math.atan2(dYdX, 1) * (180/Math.PI);
-              angle = Math.max(-18, Math.min(18, angle));
-            }
-            truck.setAttribute('transform', `translate(${x},${y}) rotate(${angle})`);
-            if(frame < totalFrames) requestAnimationFrame(animate);
+          const dist = Math.abs(endLen - startLen);
+          const baseMs = reduceMotion ? 450 : 1200;
+          const duration = Math.max(250, baseMs * (dist / (totalLen || 1)));
+          const easeInOutCubic = (t)=> t<0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+          const startTime = performance.now();
+          function tangentAngle(len){
+            const eps = 1;
+            const a = path.getPointAtLength(Math.max(0, Math.min(totalLen, len-eps)));
+            const b = path.getPointAtLength(Math.max(0, Math.min(totalLen, len+eps)));
+            return Math.atan2(b.y - a.y, b.x - a.x) * 180/Math.PI;
           }
-          if(Math.abs(endX-startX) < 0.5){
-            // Pequeña oscilación en el lugar
-            const wiggleFrames = 35; let f=0;
-            function wiggle(){
-              f++;
-              const t = f/wiggleFrames;
-              const y = pathY + (amplitude/2) * Math.sin(2*Math.PI*1*t);
-              truck.setAttribute('transform', `translate(${endX},${y}) rotate(0)`);
-              if(f<wiggleFrames) requestAnimationFrame(wiggle);
+          function step(now){
+            const t = Math.min(1, (now - startTime)/duration);
+            const te = easeInOutCubic(t);
+            const curLen = startLen + (endLen - startLen) * te;
+            const pt = path.getPointAtLength(curLen);
+            let ang = tangentAngle(curLen);
+            if(reduceMotion) ang = 0;
+            truck.setAttribute('transform', `translate(${pt.x},${pt.y}) rotate(${ang})`);
+            if(t < 1) requestAnimationFrame(step);
+            else {
+              // Al llegar, bob sutil si no hay movimiento
+              if(dist < 2 && !reduceMotion){
+                let f=0; const wig=28; const baseY = pt.y;
+                (function wiggle(){
+                  f++;
+                  const y = baseY + Math.sin(f/10)*1.5;
+                  truck.setAttribute('transform', `translate(${pt.x},${y}) rotate(0)`);
+                  if(f<wig) requestAnimationFrame(wiggle);
+                })();
+              }
             }
-            wiggle();
-          } else {
-            animate();
           }
+          requestAnimationFrame(step);
         }
       }, 100);
     }
