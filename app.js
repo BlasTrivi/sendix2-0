@@ -2601,14 +2601,14 @@ function renderTracking(){
     const chipClass = (p.shipStatus==='entregado') ? 'ok' : (p.shipStatus==='en-camino'?'':'warn');
     const isActive = state.activeShipmentProposalId===p.id;
     // Contenedor de detalle inline (mapa + acciones) solo si activo
+    const canEditHere = state.user?.role==='transportista' && p.carrier===state.user.name;
     const detail = isActive ? `
       <div class="map-box" style="width:100%;max-width:700px;margin:12px 0 8px 0;position:relative;">
         <div id="tracking-map" data-proposal="${p.id}" style="width:100%;height:180px;"></div>
       </div>
-      <div class="actions" data-actions-for="${p.id}">
-        ${state.user?.role==='transportista' && p.carrier===state.user.name ? `<button class="btn" data-advance>Avanzar estado</button><button class="btn btn-ghost" data-reset>Reiniciar</button>`: ''}
-        <button class="btn" data-open-chat="${p.id}">Abrir chat</button>
-      </div>
+      ${canEditHere ? `<div class="actions" data-actions-for="${p.id}">
+        <button class="btn" data-advance>Avanzar estado</button>
+      </div>` : ''}
     ` : '';
     return `<li data-prop-item="${p.id}">
       <div class="row">
@@ -2674,15 +2674,36 @@ function renderTracking(){
             <circle cx="12" cy="6" r="5" fill="#333" />
             <circle cx="-10" cy="6" r="2" fill="#888" />
             <circle cx="12" cy="6" r="2" fill="#888" />
+            <!-- Luces delanteras -->
+            <g id="truck-lights" opacity="0.9">
+              <!-- Faros -->
+              <circle cx="28" cy="-5" r="2" fill="#fff8a3" />
+              <circle cx="28" cy="1" r="2" fill="#fff8a3" />
+              <!-- Haz de luz -->
+              <polygon points="28,-6 60,-14 60,2" fill="#fff8a3" opacity="0.28" />
+              <polygon points="28,2 60,-6 60,10" fill="#fff8a3" opacity="0.22" />
+            </g>
           </g>
         </svg>
       `;
       // Animación JS para mover el camión
       setTimeout(()=>{
         const truck = document.getElementById('tracking-truck');
+        const lights = document.getElementById('truck-lights');
         const path = document.getElementById('tracking-path');
         if(truck && path){
           const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          // Pulso de luces (si no se prefiere reducir movimiento)
+          if(lights && !reduceMotion){
+            const pulse = (t)=>{
+              // Si el SVG fue removido, cortar animación
+              if(!document.getElementById('truck-lights')) return;
+              const op = 0.55 + 0.35 * Math.sin(t/220);
+              lights.style.opacity = String(op);
+              requestAnimationFrame(pulse);
+            };
+            requestAnimationFrame(pulse);
+          }
           const totalLen = path.getTotalLength();
           const anchorsX = [40,200,360,560];
           // Buscar longitud aprox. para cada x objetivo sobre el path (binary search)
@@ -2769,26 +2790,8 @@ function renderTracking(){
         if(r==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
       })();
     };
-    // Reiniciar
-    const btnReset = actionsBox.querySelector('[data-reset]');
-    if(btnReset) btnReset.onclick = ()=>{
-      current.shipStatus = 'pendiente';
-      state.trackingStep = current.shipStatus;
-      save(); renderTracking();
-      const r = (location.hash.replace('#','')||'home');
-      if(r==='mis-cargas'){ try{ requireRole('empresa'); renderMyLoadsWithProposals(); }catch(e){} }
-    };
-    // Abrir chat
-    const btnOpen = actionsBox.querySelector('[data-open-chat]');
-    if(btnOpen) btnOpen.onclick = ()=> openChatByProposalId(current.id);
-    // Mostrar/ocultar acciones según permisos
-    actionsBox.style.display = 'flex';
-    if(!canEdit){
-      const adv = actionsBox.querySelector('[data-advance]');
-      const rst = actionsBox.querySelector('[data-reset]');
-      if(adv) adv.style.display='none';
-      if(rst) rst.style.display='none';
-    }
+    // Mostrar/ocultar acciones según permisos (si no puede editar, el contenedor no existe)
+    actionsBox.style.display = canEdit ? 'flex' : 'none';
   }
   if(onlyActive) onlyActive.onchange = ()=>renderTracking();
   if(search) search.oninput = ()=>renderTracking();
