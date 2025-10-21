@@ -905,10 +905,10 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   font-size: 15px;
   padding: 8px 16px;
 }
-/* Login: campos Email y Contraseña en línea en escritorios */
+/* Login: en escritorio también apilados uno debajo del otro */
 @media (min-width: 760px){
-  .login-form .login-inline{ flex-wrap:nowrap; }
-  .login-form .login-inline-field{ display:grid; grid-template-columns:auto 1fr; align-items:center; }
+  .login-form .login-inline{ flex-direction: column; gap: 8px; }
+  .login-form .login-inline-field{ width:100%; display:flex; align-items:center; gap:8px; }
   .login-form .login-inline-field input{ width:100%; }
 }
 @media (max-width: 759.98px){
