@@ -3060,6 +3060,23 @@ function linkify(text){
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.replace(urlRegex, (url)=>`<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
 }
+// Normaliza las paradas intermedias desde distintos formatos heredados
+function stopsFromLoad(l){
+  try{
+    const meta = l?.meta || {};
+    // Arrays directos
+    if(Array.isArray(meta.stops) && meta.stops.length) return meta.stops.map(String);
+    if(Array.isArray(meta.paradas) && meta.paradas.length) return meta.paradas.map(String);
+    // Strings posibles: meta.paradaIntermedia, meta.stops, l.paradaIntermedia, l.stops
+    const cand = meta.paradaIntermedia || meta.stop || meta.stops || l?.paradaIntermedia || l?.stops;
+    if(typeof cand === 'string' && cand.trim()){
+      // Separadores comunes: →, ->, -, ;, ,
+      const parts = cand.split(/\s*(?:→|->|;|,)\s*/).map(s=>s.trim()).filter(Boolean);
+      if(parts.length) return parts;
+    }
+    return [];
+  }catch{ return []; }
+}
 // Resumen prolijo para items de carga
 function renderLoadSummary(l){
   if(!l) return '';
@@ -3071,8 +3088,9 @@ function renderLoadSummary(l){
   if(l.meta?.producto){ tipoLine += ` · Prod.: ${escapeHtml(l.meta.producto)}`; }
   parts.push(`<span class="kv">${tipoLine}<\/span>`);
   // paradas intermedias
-  if(Array.isArray(l.meta?.stops) && l.meta.stops.length){
-    parts.push(`<span class=\"kv\">🧭 Paradas intermedias: <b>${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}<\/b><\/span>`);
+  const stops = stopsFromLoad(l);
+  if(stops.length){
+    parts.push(`<span class=\"kv\">🧭 Paradas intermedias: <b>${stops.map(s=>escapeHtml(String(s))).join(' → ')}<\/b><\/span>`);
   }
   // cantidad
   if(l.cantidad){ parts.push(`<span class="kv">🔢 Cant.: <b>${escapeHtml(String(l.cantidad))} ${escapeHtml(l.unidad||'')}<\/b><\/span>`); }
@@ -3106,8 +3124,9 @@ function renderLoadPreview(l){
   }
   const fechaTxt = l.fechaHora ? new Date(l.fechaHora).toLocaleString() : (l.fecha || '');
   const fechaDescTxt = l.meta?.fechaHoraDescarga ? new Date(l.meta.fechaHoraDescarga).toLocaleString() : '';
-  const stopsHtml = (Array.isArray(l.meta?.stops) && l.meta.stops.length)
-    ? `<span>🧭 <b>Paradas intermedias:</b> ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</span><br>` : '';
+  const stopsArr = stopsFromLoad(l);
+  const stopsHtml = (stopsArr.length)
+    ? `<span>🧭 <b>Paradas intermedias:</b> ${stopsArr.map(s=>escapeHtml(String(s))).join(' → ')}</span><br>` : '';
   return `
     <div class="load-preview">
       <strong>Resumen de carga:</strong><br>
