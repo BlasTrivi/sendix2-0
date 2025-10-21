@@ -1158,7 +1158,6 @@ async function renderLoads(onlyMine=false){
   ul.innerHTML = data.length ? data.map(l=>`
     <li>
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
-      ${renderLoadSummary(l)}
       ${renderLoadPreview(l)}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row"><button class="btn btn-ghost" data-view="${l.id}">Ver propuestas</button></div>
@@ -1510,12 +1509,11 @@ async function renderMyLoadsWithProposals(focus){
   }).join('') : (showFiltered ? '<li class="muted">Sin propuestas filtradas por MICARGA aún.</li>' : '');
     return `<li id="load-${l.id}">
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
-      ${renderLoadSummary(l)}
       ${renderLoadPreview(l)}
       ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>4? `<span class="muted">+${l.adjuntos.length-4} más</span>`:''}</div>`:''}
-      ${approvedBlock ? `<div class="mt"><strong>Envío seleccionado</strong></div>${approvedBlock}` : ''}
-  ${showFiltered ? `<div class="mt"><strong>Propuestas filtradas por MICARGA</strong></div>
+      ${approvedBlock ? `<div class="mt" style="margin-top:16px"><strong>Envío seleccionado</strong></div>${approvedBlock}` : ''}
+  ${showFiltered ? `<div class="mt" style="margin-top:16px"><strong>Propuestas filtradas por MICARGA</strong></div>
       <ul class="list">${filteredBlock}</ul>` : ''}
     </li>`;
   }).join('') : '<li class="muted">No publicaste cargas.</li>';
@@ -1574,7 +1572,6 @@ async function renderOffers(){
             <strong>${l.origen} ➜ ${l.destino}</strong>
             <span>${new Date(l.createdAt).toLocaleDateString()}</span>
           </div>
-          ${renderLoadSummary(l)}
           ${renderLoadPreview(l)}
           ${stopsLine}
           ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
@@ -1627,7 +1624,6 @@ function renderMyProposals(){
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${badge}</span>
       </div>
-      ${renderLoadSummary(l)}
       ${renderLoadPreview(l)}
       ${stopsLine}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
@@ -1659,7 +1655,6 @@ function renderShipments(){
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
-      ${renderLoadSummary(l)}
       ${renderLoadPreview(l)}
       ${stopsLine}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}

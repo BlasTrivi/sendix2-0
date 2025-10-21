@@ -363,6 +363,20 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 .load-summary .kv{ background:#f8fbfc; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:13px; }
 .load-summary b{ font-weight:700; }
 
+/* Detalle del Resumen de carga (bloque limpio y legible) */
+.load-preview{
+  background:#f8fbfc;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px 12px;
+  margin:8px 0 12px 0;
+  line-height:1.35;
+}
+.load-preview strong{ color: var(--primary); }
+.load-preview span{ display:inline-block; margin:2px 0; }
+
+.section-gap{ margin-top:16px; }
+
 /* --------------------
    Chat
    -------------------- */
