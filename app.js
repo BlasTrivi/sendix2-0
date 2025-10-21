@@ -1014,24 +1014,30 @@ async function syncLoadsFromAPI(){
     if(!state.user) return;
     const rows = await API.listLoads();
     // Adaptar a formato local para render sin romper nada
-    state.loads = rows.map(r=>({
-      id: r.id,
-      owner: r.owner?.name || r.ownerName || state.user.name,
-      ownerEmail: r.owner?.email || '',
-      origen: r.origen,
-      destino: r.destino,
-      tipo: r.tipo,
-      cantidad: r.cantidad ?? null,
-      unidad: r.unidad || '',
-      dimensiones: r.dimensiones || '',
-      peso: r.peso ?? null,
-      volumen: r.volumen ?? null,
-      fechaHora: r.fechaHora || r.createdAt,
-      descripcion: r.descripcion || '',
-      adjuntos: r.attachments || [] ,
-      meta: r.meta || r.extra || {},
-      createdAt: r.createdAt
-    }));
+    state.loads = rows.map(r=>{
+      const att = r.attachments;
+      const isObj = att && typeof att === 'object' && !Array.isArray(att);
+      const files = Array.isArray(att) ? att : (isObj && Array.isArray(att.files) ? att.files : []);
+      const meta = (r.meta || r.extra || (isObj ? (att.meta || {}) : {})) || {};
+      return {
+        id: r.id,
+        owner: r.owner?.name || r.ownerName || state.user.name,
+        ownerEmail: r.owner?.email || '',
+        origen: r.origen,
+        destino: r.destino,
+        tipo: r.tipo,
+        cantidad: r.cantidad ?? null,
+        unidad: r.unidad || '',
+        dimensiones: r.dimensiones || '',
+        peso: r.peso ?? null,
+        volumen: r.volumen ?? null,
+        fechaHora: r.fechaHora || r.createdAt,
+        descripcion: r.descripcion || '',
+        adjuntos: files,
+        meta,
+        createdAt: r.createdAt
+      };
+    });
     save();
   }catch(e){ /* fallback silencioso */ }
 }
@@ -1052,28 +1058,34 @@ async function addLoad(load){
       volumen: load.volumen ?? null,
       fechaHora: load.fechaHora || null,
       descripcion: load.descripcion||'',
-      attachments: load.adjuntos||[],
-      meta: load.meta || {}
+      // Persistimos meta dentro de attachments para compatibilidad con el esquema actual
+      attachments: { files: load.adjuntos||[], meta: load.meta || {} }
     });
     // Insertar arriba adaptado
-    state.loads.unshift({
-      id: created.id,
-      owner: created.owner?.name || state.user.name,
-      ownerEmail: created.owner?.email || state.user.email || '',
-      origen: created.origen,
-      destino: created.destino,
-      tipo: created.tipo,
-      cantidad: created.cantidad ?? null,
-      unidad: created.unidad || '',
-      dimensiones: created.dimensiones || '',
-      peso: created.peso ?? null,
-      volumen: created.volumen ?? null,
-      fechaHora: created.fechaHora || created.createdAt,
-      descripcion: created.descripcion || '',
-      adjuntos: created.attachments || [],
-      meta: created.meta || {},
-      createdAt: created.createdAt
-    });
+    {
+      const att = created.attachments;
+      const isObj = att && typeof att === 'object' && !Array.isArray(att);
+      const files = Array.isArray(att) ? att : (isObj && Array.isArray(att.files) ? att.files : []);
+      const meta = (created.meta || (isObj ? (att.meta || {}) : {})) || {};
+      state.loads.unshift({
+        id: created.id,
+        owner: created.owner?.name || state.user.name,
+        ownerEmail: created.owner?.email || state.user.email || '',
+        origen: created.origen,
+        destino: created.destino,
+        tipo: created.tipo,
+        cantidad: created.cantidad ?? null,
+        unidad: created.unidad || '',
+        dimensiones: created.dimensiones || '',
+        peso: created.peso ?? null,
+        volumen: created.volumen ?? null,
+        fechaHora: created.fechaHora || created.createdAt,
+        descripcion: created.descripcion || '',
+        adjuntos: files,
+        meta,
+        createdAt: created.createdAt
+      });
+    }
     save();
     return;
   }catch(e){
