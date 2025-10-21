@@ -1510,7 +1510,7 @@ async function renderMyLoadsWithProposals(focus){
     return `<li id="load-${l.id}">
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       ${renderLoadPreview(l)}
-      ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
+      
       ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,4).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>4? `<span class="muted">+${l.adjuntos.length-4} más</span>`:''}</div>`:''}
       ${approvedBlock ? `<div class="mt" style="margin-top:16px"><strong>Envío seleccionado</strong></div>${approvedBlock}` : ''}
   ${showFiltered ? `<div class="mt" style="margin-top:16px"><strong>Propuestas filtradas por MICARGA</strong></div>
@@ -1571,7 +1571,7 @@ async function renderOffers(){
             <span>${new Date(l.createdAt).toLocaleDateString()}</span>
           </div>
           ${renderLoadPreview(l)}
-          ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
+          
           ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
           ${formHtml}
         </li>`;
@@ -1620,7 +1620,7 @@ function renderMyProposals(){
         <span class="badge">${badge}</span>
       </div>
   ${renderLoadPreview(l)}
-      ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
+      
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row">
         <span class="muted">Precio ofertado</span>
@@ -1648,7 +1648,7 @@ function renderShipments(){
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
   ${renderLoadPreview(l)}
-      ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
+      
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row"><span class="muted">Precio</span><strong>$${p.price.toLocaleString('es-AR')}</strong></div>
       <div class="row">
@@ -3125,8 +3125,7 @@ function renderLoadPreview(l){
   const fechaTxt = l.fechaHora ? new Date(l.fechaHora).toLocaleString() : (l.fecha || '');
   const fechaDescTxt = l.meta?.fechaHoraDescarga ? new Date(l.meta.fechaHoraDescarga).toLocaleString() : '';
   const stopsArr = stopsFromLoad(l);
-  const stopsHtml = (stopsArr.length)
-    ? `<span>🧭 <b>Paradas intermedias:</b> ${stopsArr.map(s=>escapeHtml(String(s))).join(' → ')}</span><br>` : '';
+  const stopsHtml = `<span>🧭 <b>Paradas intermedias:</b> ${stopsArr.length ? stopsArr.map(s=>escapeHtml(String(s))).join(' → ') : '-'}</span><br>`;
   return `
     <div class="load-preview">
       <strong>Resumen de carga:</strong><br>
