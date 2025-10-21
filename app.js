@@ -3072,7 +3072,7 @@ function renderLoadSummary(l){
   parts.push(`<span class="kv">${tipoLine}<\/span>`);
   // paradas intermedias
   if(Array.isArray(l.meta?.stops) && l.meta.stops.length){
-    parts.push(`<span class=\"kv\">🧭 Paradas: <b>${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}<\/b><\/span>`);
+    parts.push(`<span class=\"kv\">🧭 Paradas intermedias: <b>${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}<\/b><\/span>`);
   }
   // cantidad
   if(l.cantidad){ parts.push(`<span class="kv">🔢 Cant.: <b>${escapeHtml(String(l.cantidad))} ${escapeHtml(l.unidad||'')}<\/b><\/span>`); }
