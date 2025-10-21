@@ -3064,17 +3064,39 @@ function linkify(text){
 function stopsFromLoad(l){
   try{
     const meta = l?.meta || {};
-    // Arrays directos
-    if(Array.isArray(meta.stops) && meta.stops.length) return meta.stops.map(String);
-    if(Array.isArray(meta.paradas) && meta.paradas.length) return meta.paradas.map(String);
-    // Strings posibles: meta.paradaIntermedia, meta.stops, l.paradaIntermedia, l.stops
-    const cand = meta.paradaIntermedia || meta.stop || meta.stops || l?.paradaIntermedia || l?.stops;
-    if(typeof cand === 'string' && cand.trim()){
-      // Separadores comunes: →, ->, -, ;, ,
-      const parts = cand.split(/\s*(?:→|->|;|,)\s*/).map(s=>s.trim()).filter(Boolean);
-      if(parts.length) return parts;
-    }
-    return [];
+    const out = [];
+    const candidates = [meta.stops, meta.paradas, meta.paradaIntermedia, meta.stop, l?.stops, l?.paradas, l?.paradaIntermedia];
+    const pushNormalized = (val)=>{
+      if(!val) return;
+      if(Array.isArray(val)){
+        val.flat().forEach(it=>{
+          if(it==null) return;
+          if(typeof it === 'string') out.push(it.trim());
+          else if(typeof it === 'object'){
+            const s = it.nombre||it.name||it.titulo||it.title||it.direccion||it.address||it.label||it.value||'';
+            if(String(s).trim()) out.push(String(s).trim());
+          } else {
+            const s = String(it).trim(); if(s) out.push(s);
+          }
+        });
+      } else if(typeof val === 'string'){
+        const txt = val.trim();
+        if(!txt) return;
+        // Intentar JSON array
+        if((txt.startsWith('[') && txt.endsWith(']'))){
+          try{
+            const arr = JSON.parse(txt);
+            if(Array.isArray(arr)) arr.forEach(x=> pushNormalized(x));
+            return;
+          }catch{}
+        }
+        // Separadores comunes: flecha, guiones, barras, comas, punto y coma y saltos de línea
+        txt.split(/\s*(?:→|->|—|-|\/|\||;|,|\n|\r)\s*/).forEach(s=>{ if(s) out.push(s); });
+      }
+    };
+    candidates.forEach(pushNormalized);
+    // Limpiar duplicados y vacíos
+    return Array.from(new Set(out.map(s=>String(s).trim()).filter(Boolean)));
   }catch{ return []; }
 }
 // Resumen prolijo para items de carga
