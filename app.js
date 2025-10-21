@@ -1211,7 +1211,7 @@ function initPublishForm(){
       if(data.presentacion) extras.push(`<span>📦 <b>Presentación:</b> ${escapeHtml(data.presentacion)}</span>`);
       if(data.cargaPeligrosa) extras.push(`<span>☣️ <b>Peligrosa:</b> ${escapeHtml(data.cargaPeligrosa)}</span>`);
     }
-    const stopsHtml = (stops.length ? `<span>🧭 <b>Paradas:</b> ${stops.map(s=>escapeHtml(s)).join(' → ')}</span><br>` : '');
+  const stopsHtml = (stops.length ? `<span>🧭 <b>Paradas intermedias:</b> ${stops.map(s=>escapeHtml(s)).join(' → ')}</span><br>` : '');
     if(data.origen || data.destino || tipo || data.cantidad || data.fechaHora || data.descripcion || pendingFiles.length || extras.length || stops.length) {
       preview.style.display = 'block';
       preview.innerHTML = `
@@ -1557,9 +1557,7 @@ async function renderOffers(){
     ? offers.map(l=>{
         const alreadyApplied = state.proposals.some(p=>p.loadId===l.id && p.carrier===state.user?.name);
         const myProposal = state.proposals.find(p=>p.loadId===l.id && p.carrier===state.user?.name);
-        const stopsLine = (Array.isArray(l.meta?.stops) && l.meta.stops.length)
-          ? `<div class="muted">🧭 Paradas intermedias: ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</div>`
-          : '';
+        
         const formHtml = alreadyApplied
           ? `<div class="row"><span class="badge">Ya te postulaste</span>${myProposal? `<span class="price-tag">ARS $${Number(myProposal.price||0).toLocaleString('es-AR')}</span>`:''}</div>`
           : `<form class="row" data-apply="${l.id}">
@@ -1573,7 +1571,6 @@ async function renderOffers(){
             <span>${new Date(l.createdAt).toLocaleDateString()}</span>
           </div>
           ${renderLoadPreview(l)}
-          ${stopsLine}
           ${l.descripcion? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>`:''}
           ${Array.isArray(l.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class="file-chip">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class="muted">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
           ${formHtml}
@@ -1614,9 +1611,7 @@ function renderMyProposals(){
   const mine = state.proposals.filter(p=>p.carrier===state.user?.name);
   ul.innerHTML = mine.length ? mine.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
-    const stopsLine = (Array.isArray(l?.meta?.stops) && l.meta.stops.length)
-      ? `<div class="muted">🧭 Paradas intermedias: ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</div>`
-      : '';
+    
     const badge = p.status==='approved' ? 'Aprobada' : p.status==='rejected' ? 'Rechazada' : p.status==='filtered' ? 'Filtrada' : 'En revisión';
     const canChat = p.status==='approved';
     return `<li>
@@ -1624,8 +1619,7 @@ function renderMyProposals(){
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${badge}</span>
       </div>
-      ${renderLoadPreview(l)}
-      ${stopsLine}
+  ${renderLoadPreview(l)}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row">
@@ -1647,16 +1641,13 @@ function renderShipments(){
   const mine = state.proposals.filter(p=>p.carrier===state.user?.name && p.status==='approved');
   ul.innerHTML = mine.length ? mine.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
-    const stopsLine = (Array.isArray(l?.meta?.stops) && l.meta.stops.length)
-      ? `<div class="muted">🧭 Paradas intermedias: ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</div>`
-      : '';
+    
     return `<li>
       <div class="row">
         <strong>${l?.origen} ➜ ${l?.destino}</strong>
         <span class="badge">${p.shipStatus||'pendiente'}</span>
       </div>
-      ${renderLoadPreview(l)}
-      ${stopsLine}
+  ${renderLoadPreview(l)}
       ${l?.descripcion ? `<div class="muted">📝 ${escapeHtml(l.descripcion)}</div>` : ''}
       ${Array.isArray(l?.adjuntos)&&l.adjuntos.length? `<div class="attachments small">${l.adjuntos.slice(0,3).map(a=> a.type?.startsWith('image/')? `<img src="${a.preview||''}" alt="adjunto"/>` : `<span class=\"file-chip\">${a.name||'archivo'}</span>`).join('')}${l.adjuntos.length>3? `<span class=\"muted\">+${l.adjuntos.length-3} más</span>`:''}</div>`:''}
       <div class="row"><span class="muted">Precio</span><strong>$${p.price.toLocaleString('es-AR')}</strong></div>
@@ -3116,7 +3107,7 @@ function renderLoadPreview(l){
   const fechaTxt = l.fechaHora ? new Date(l.fechaHora).toLocaleString() : (l.fecha || '');
   const fechaDescTxt = l.meta?.fechaHoraDescarga ? new Date(l.meta.fechaHoraDescarga).toLocaleString() : '';
   const stopsHtml = (Array.isArray(l.meta?.stops) && l.meta.stops.length)
-    ? `<span>🧭 <b>Paradas:</b> ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</span><br>` : '';
+    ? `<span>🧭 <b>Paradas intermedias:</b> ${l.meta.stops.map(s=>escapeHtml(String(s))).join(' → ')}</span><br>` : '';
   return `
     <div class="load-preview">
       <strong>Resumen de carga:</strong><br>
