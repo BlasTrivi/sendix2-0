@@ -2564,10 +2564,12 @@ function renderTracking(){
   } else if(state.user?.role==='empresa'){
     const myLoadIds = state.loads.filter(l=>l.owner===state.user.name).map(l=>l.id);
     options = state.proposals.filter(p=>myLoadIds.includes(p.loadId) && p.status==='approved');
-    hint.textContent = options.length ? 'Vista de estado. Solo lectura.' : 'No hay envíos aprobados aún.';
+    // Solicitud: no mostrar leyenda "Vista de estado. Solo lectura."
+    hint.textContent = '';
   } else if(state.user?.role==='micarga'){
     options = state.proposals.filter(p=>p.status==='approved');
-    hint.textContent = options.length ? 'Vista MICARGA. Solo lectura.' : 'No hay envíos aprobados.';
+    // También ocultar la variante MICARGA
+    hint.textContent = '';
   }
 
   const activeFilter = (p)=> (p.shipStatus||'pendiente') !== 'entregado';
@@ -2614,7 +2616,7 @@ function renderTracking(){
         <span class="chip ${chipClass}">${p.shipStatus||'pendiente'}</span>
       </div>
       <div class="row subtitle">
-  <div>Emp: ${l?.owner} · Transp: ${p.carrier} · Dim: ${l?.dimensiones||'-'}</div>
+  <div>Emp: ${l?.owner} · Transp: ${p.carrier}</div>
         <div class="row" style="gap:8px">
           <button class="btn" data-select="${p.id}" aria-expanded="${isActive?'true':'false'}">${isActive?'Ocultar':'Ver'}</button>
           <button class="btn" data-chat="${p.id}">Chat ${unread?`<span class='badge-pill'>${unread}</span>`:''}</button>
