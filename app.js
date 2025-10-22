@@ -2686,6 +2686,22 @@ function renderTracking(){
           </g>
         </svg>
       `;
+      // Asegurar centrado perfecto de las etiquetas bajo cada hito
+      try{
+        const svg = mapBox.querySelector('#svg-tracking');
+        const steps = svg ? Array.from(svg.querySelectorAll('circle.tracking-step')) : [];
+        const labels = svg ? Array.from(svg.querySelectorAll('text')) : [];
+        labels.forEach((t,i)=>{
+          const s = steps[i];
+          if(!t || !s) return;
+          const cx = Number(s.getAttribute('cx')) || 0;
+          t.setAttribute('x', String(cx));
+          t.setAttribute('text-anchor','middle');
+          t.setAttribute('dominant-baseline','hanging');
+          t.setAttribute('alignment-baseline','hanging');
+          t.style.pointerEvents = 'none';
+        });
+      }catch{}
       // Animación JS para mover el camión
       setTimeout(()=>{
         const truck = document.getElementById('tracking-truck');
