@@ -1760,11 +1760,18 @@ function renderInbox(){
     const header = `<div><strong>Transportista:</strong> ${escapeHtml(p.carrier||u?.name||'-')}${p.vehicle? ` · <strong>Vehículo:</strong> ${escapeHtml(p.vehicle)}`:''}</div>`;
     return `<div class="load-preview">${header}${kv.length? `<div class="load-summary">${kv.join(' ')}</div>`:''}</div>`;
   }
+  function priceHeader(p){
+    const left = `<div><strong>${escapeHtml(p.carrier)}</strong> <span class=\"muted\">(${escapeHtml(p.vehicle||'-')})</span></div>`;
+    const right = `<div class=\"row\" style=\"gap:6px; align-items:center; margin-left:auto\">`
+      + `<span class=\"price-tag\" title=\"Precio cotizado por el transportista\">Transp. ARS $${p.price.toLocaleString('es-AR')}</span>`
+      + `<span class=\"price-tag total\" title=\"Total estimado para la empresa (con comisión)\">Empresa ARS $${totalForCompany(p.price).toLocaleString('es-AR')}</span>`
+      + `</div>`;
+    return `<div class=\"row\" style=\"align-items:flex-start\">${left}${right}</div>`;
+  }
   ul.innerHTML = `<h3>Pendientes</h3>` + (pending.length ? pending.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
-    const priceRow = `<div class=\"row\"><strong>${escapeHtml(p.carrier)}</strong> <span class=\"muted\">(${escapeHtml(p.vehicle||'-')})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class=\"muted\">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>`;
     return `<li>
-      ${priceRow}
+      ${priceHeader(p)}
       ${renderLoadPreview(l)}
       ${carrierBlock(p)}
       <div class="actions">
@@ -1777,7 +1784,7 @@ function renderInbox(){
   ul.innerHTML += `<h3 class='mt'>Filtradas por MICARGA (${filteredList.length})</h3>` + (filteredList.length ? filteredList.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
-      <div class="row"><strong>${escapeHtml(p.carrier)}</strong> <span class="muted">(${escapeHtml(p.vehicle||'-')})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
+      ${priceHeader(p)}
       ${renderLoadPreview(l)}
       ${carrierBlock(p)}
       <div class="actions">
@@ -1792,7 +1799,7 @@ function renderInbox(){
   ul.innerHTML += `<h3 class='mt'>Filtradas por MICARGA y aprobadas por la empresa (${filteredAndApproved.length})</h3>` + (filteredAndApproved.length ? filteredAndApproved.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
-      <div class="row"><strong>${escapeHtml(p.carrier)}</strong> <span class="muted">(${escapeHtml(p.vehicle||'-')})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="badge">Aprobada</span></div>
+      ${priceHeader(p)}
       ${renderLoadPreview(l)}
       ${carrierBlock(p)}
       <div class="actions">
