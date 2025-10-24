@@ -665,6 +665,38 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   .bubble{ font-size: 14px; }
 }
 
+/* Compacto por altura: laptops con poca altura (p.ej. 1366x768 o menor) */
+@media (max-height: 800px){
+  /* Header y cabecera más baja */
+  .topbar-inner{ padding: 8px 12px; }
+  .tagline{ display:none; }
+  /* Menos padding general arriba para ganar espacio útil */
+  #view-container{ padding-top: 10px; }
+  /* Hero más compacto */
+  .hero-main{ padding: 18px 16px; }
+  .hero-title{ font-size: 1.28rem; margin: 0 0 6px 0; }
+  .hero-desc{ font-size: .95rem; margin: 0 0 8px 0; }
+  .hero-btn{ padding: 10px 14px; }
+  /* Cards con menos aire */
+  .view[data-route="home"] .cards{ margin-top: 12px; gap: 12px; }
+  .card{ padding: 14px; }
+  .card h3{ font-size: 1.06rem; }
+  .card .card-desc{ font-size: .94rem; }
+  /* Barra inferior más baja si está visible en escritorio */
+  .bottombar{ padding: 8px 12px; }
+  .tab{ font-size: 20px; padding: 8px 12px; }
+}
+
+/* Ultra compacto por altura: <= 680px (pantallas muy bajas o ventanas chicas) */
+@media (max-height: 680px){
+  .hero-main{ padding: 14px 12px; }
+  .hero-title{ font-size: 1.18rem; }
+  /* Ocultamos la descripción del hero para priorizar que se vean las tarjetas */
+  .view[data-route="home"] .hero-desc{ display:none; }
+  .view[data-route="home"] .cards{ gap: 10px; }
+  .card{ padding: 12px; }
+}
+
 /* Header full-width con contenedor interno */
 .topbar{
   position: sticky;  /* queda pegado arriba al hacer scroll */
