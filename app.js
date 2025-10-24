@@ -1742,11 +1742,31 @@ function renderInbox(){
   const filteredList = state.proposals.filter(p=>p.status==='filtered' && matchesEmail(p) && matchesQ(p) && matchesStatus(p)).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
   // Propuestas filtradas por MICARGA y aprobadas por la empresa
   const filteredAndApproved = state.proposals.filter(p=>p.status==='approved' && matchesEmail(p) && matchesQ(p) && matchesStatus(p)).sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+  function carrierBlock(p){
+    const emailKey = String(p.carrierEmail||'').toLowerCase();
+    const u = (state.adminUsers||[]).find(x=> String(x.email||'').toLowerCase()===emailKey)
+          || (state.users||[]).find(x=> String(x.email||'').toLowerCase()===emailKey)
+          || null;
+    const perfil = u?.perfil || {};
+    const kv = [];
+    if(u?.email) kv.push(`<span class="kv"><b>Email:</b> ${escapeHtml(u.email)}</span>`);
+    if(perfil.dni) kv.push(`<span class="kv"><b>DNI:</b> ${escapeHtml(perfil.dni)}</span>`);
+    if(perfil.alcance) kv.push(`<span class="kv"><b>Alcance:</b> ${escapeHtml(perfil.alcance)}</span>`);
+    if(Array.isArray(perfil.cargas) && perfil.cargas.length) kv.push(`<span class="kv"><b>Cargas:</b> ${perfil.cargas.map(escapeHtml).join(', ')}</span>`);
+    if(Array.isArray(perfil.vehiculos) && perfil.vehiculos.length) kv.push(`<span class="kv"><b>Vehículos:</b> ${perfil.vehiculos.map(escapeHtml).join(', ')}</span>`);
+    if(typeof perfil.seguroOk!== 'undefined') kv.push(`<span class="kv"><b>Seguro:</b> ${perfil.seguroOk ? 'OK' : '—'}</span>`);
+    if(perfil.senasa) kv.push(`<span class="kv"><b>SENASA:</b> Sí</span>`);
+    if(perfil.imo) kv.push(`<span class="kv"><b>IMO:</b> Sí</span>`);
+    const header = `<div><strong>Transportista:</strong> ${escapeHtml(p.carrier||u?.name||'-')}${p.vehicle? ` · <strong>Vehículo:</strong> ${escapeHtml(p.vehicle)}`:''}</div>`;
+    return `<div class="load-preview">${header}${kv.length? `<div class="load-summary">${kv.join(' ')}</div>`:''}</div>`;
+  }
   ul.innerHTML = `<h3>Pendientes</h3>` + (pending.length ? pending.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
+    const priceRow = `<div class=\"row\"><strong>${escapeHtml(p.carrier)}</strong> <span class=\"muted\">(${escapeHtml(p.vehicle||'-')})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class=\"muted\">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>`;
     return `<li>
-      <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
-      <div class="muted">Carga: ${l?.origen} ➜ ${l?.destino} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Empresa: ${l?.owner}</div>
+      ${priceRow}
+      ${renderLoadPreview(l)}
+      ${carrierBlock(p)}
       <div class="actions">
         <button class="btn" data-view-user="${p.carrierEmail||''}" ${p.carrierEmail? '' : 'disabled'}>Ver perfil</button>
         <button class="btn btn-primary" data-filter="${p.id}">Filtrar</button>
@@ -1757,8 +1777,9 @@ function renderInbox(){
   ul.innerHTML += `<h3 class='mt'>Filtradas por MICARGA (${filteredList.length})</h3>` + (filteredList.length ? filteredList.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
-      <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
-      <div class="muted">Carga: ${l?.origen} ➜ ${l?.destino} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Empresa: ${l?.owner}</div>
+      <div class="row"><strong>${escapeHtml(p.carrier)}</strong> <span class="muted">(${escapeHtml(p.vehicle||'-')})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="muted">· Total empresa $${totalForCompany(p.price).toLocaleString('es-AR')}</span></div>
+      ${renderLoadPreview(l)}
+      ${carrierBlock(p)}
       <div class="actions">
         <span class="badge">Filtrada</span>
         <button class="btn" data-view-user="${p.carrierEmail||''}" ${p.carrierEmail? '' : 'disabled'}>Ver perfil</button>
@@ -1771,8 +1792,9 @@ function renderInbox(){
   ul.innerHTML += `<h3 class='mt'>Filtradas por MICARGA y aprobadas por la empresa (${filteredAndApproved.length})</h3>` + (filteredAndApproved.length ? filteredAndApproved.map(p=>{
     const l = state.loads.find(x=>x.id===p.loadId);
     return `<li>
-      <div class="row"><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle||'-'})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="badge">Aprobada</span></div>
-      <div class="muted">Carga: ${l?.origen} ➜ ${l?.destino} · ${l?.tipo} · Cant.: ${l?.cantidad? `${l?.cantidad} ${l?.unidad||''}`:'-'} · Dim.: ${l?.dimensiones||'-'} · Peso: ${l?.peso? l?.peso+' kg':'-'} · Vol: ${l?.volumen? l?.volumen+' m³':'-'} · Fecha: ${l?.fechaHora? new Date(l?.fechaHora).toLocaleString(): (l?.fecha||'-')} · Empresa: ${l?.owner}</div>
+      <div class="row"><strong>${escapeHtml(p.carrier)}</strong> <span class="muted">(${escapeHtml(p.vehicle||'-')})</span> <strong>$${p.price.toLocaleString('es-AR')}</strong> <span class="badge">Aprobada</span></div>
+      ${renderLoadPreview(l)}
+      ${carrierBlock(p)}
       <div class="actions">
         <button class="btn" data-view-user="${p.carrierEmail||''}" ${p.carrierEmail? '' : 'disabled'}>Ver perfil</button>
         <button class="btn" data-approved-chat="${p.id}">Abrir chat</button>
