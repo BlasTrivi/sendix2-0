@@ -1511,14 +1511,17 @@ async function renderMyLoadsWithProposals(focus){
       const lastMsg = [...state.messages].reverse().find(m=>m.threadId===threadId);
       return `<li class="row">
         <div><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span></div>
-        <div class="row">
+        <div class="row" style="gap:6px; align-items:center">
           <span class="badge">Filtrada por MICARGA</span>
-          <span class="muted">Total</span> <strong>$${totalForCompany(p.price).toLocaleString('es-AR')}</strong>
+          <span class="price-tag" title="Precio ofrecido por el transportista">Transp. ARS $${Number(p.price||0).toLocaleString('es-AR')}</span>
+          <span class="muted" style="font-size:12px">No incluye IVA ni seguro</span>
+          <span class="price-tag total" title="Total estimado para la empresa (con comisión)">Empresa ARS $${totalForCompany(p.price).toLocaleString('es-AR')}</span>
           <button class="btn btn-primary" data-select-win="${p.id}">Seleccionar</button>
         </div>
-        <div class="muted" style="flex-basis:100%">${lastMsg ? 'Último: '+new Date(lastMsg.ts).toLocaleString()+' · '+escapeHtml(lastMsg.from)+': '+escapeHtml(lastMsg.text) : 'Aún sin chat (se habilita al seleccionar).'}</div>
+        <div class="muted" style="flex-basis:100%">${lastMsg ? 'Último: '+new Date(lastMsg.ts).toLocaleString()+' · '+escapeHtml(lastMsg.from)+': '+escapeHtml(lastMsg.text) : 'Aún sin chat (se habilita al seleccionar).'}
+        </div>
       </li>`;
-  }).join('') : (showFiltered ? '<li class="muted">Sin propuestas filtradas por MICARGA aún.</li>' : '');
+  }).join('') : (showFiltered ? '<li class=\"muted\">Sin propuestas filtradas por MICARGA aún.</li>' : '');
     return `<li id="load-${l.id}">
       <div class="row"><strong>${l.origen} ➜ ${l.destino}</strong><span>${new Date(l.createdAt).toLocaleDateString()}</span></div>
       ${renderLoadPreview(l)}
