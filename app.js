@@ -1513,8 +1513,6 @@ async function renderMyLoadsWithProposals(focus){
         <div><strong>${p.carrier}</strong> <span class="muted">(${p.vehicle})</span></div>
         <div class="row" style="gap:6px; align-items:center">
           <span class="badge">Filtrada por MICARGA</span>
-          <span class="price-tag" title="Precio ofrecido por el transportista">Transp. ARS $${Number(p.price||0).toLocaleString('es-AR')}</span>
-          <span class="muted" style="font-size:12px">No incluye IVA ni seguro</span>
           <span class="price-tag total" title="Total estimado para la empresa (con comisión)">Empresa ARS $${totalForCompany(p.price).toLocaleString('es-AR')}</span>
           <button class="btn btn-primary" data-select-win="${p.id}">Seleccionar</button>
         </div>
