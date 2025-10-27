@@ -697,6 +697,21 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   .card{ padding: 12px; }
 }
 
+/* Ajuste específico para notebooks 720–780px de alto (muy común: 1366x768) */
+@media (max-height: 780px) and (min-width: 900px){
+  /* Reducimos aún más el hero y ocultamos su descripción */
+  .view[data-route="home"] .hero-main{ padding: 12px 14px; }
+  .view[data-route="home"] .hero-title{ font-size: 1.16rem; }
+  .view[data-route="home"] .hero-desc{ display: none; }
+  .view[data-route="home"] .cards{ margin-top: 10px; gap: 10px; }
+  .card{ padding: 12px; }
+  .card h3{ font-size: 1rem; }
+  .card .card-desc{ font-size: .9rem; }
+  /* Menos padding inferior general para que no haga falta scrollear */
+  #view-container{ padding-bottom: calc(var(--total-fixed-height) + 60px + var(--safe-bottom) + var(--browser-ui-bottom-gap)); }
+  .topbar-inner{ padding: 6px 10px; }
+}
+
 /* Header full-width con contenedor interno */
 .topbar{
   position: sticky;  /* queda pegado arriba al hacer scroll */
