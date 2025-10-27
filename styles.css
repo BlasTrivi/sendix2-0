@@ -323,9 +323,15 @@ body.route-conversaciones #view-container{ overflow:auto; padding-bottom: calc(v
 /* --------------------
    Perfil: espaciado prolijo
    -------------------- */
-#profile-form{ gap:16px; max-width:560px; }
+#profile-form{ gap:16px; max-width:720px; }
 #profile-form label{ display:grid; grid-template-columns: 180px 1fr; align-items:center; column-gap:14px; padding:6px 0; }
 #profile-form input{ width:100%; padding:14px 16px; border-radius:14px; }
+/* Nombre y Apellido más amplios para transportista */
+#profile-form input[name="firstName"],
+#profile-form input[name="lastName"]{
+  padding:16px 18px; /* un poco más altos y cómodos */
+  font-size: 1rem;
+}
 @media (max-width: 700px){
   #profile-form{ gap:12px; max-width:100%; }
   #profile-form label{ grid-template-columns: 1fr; align-items:stretch; }
