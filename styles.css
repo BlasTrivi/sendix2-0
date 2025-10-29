@@ -924,8 +924,8 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   margin-bottom: 4px;
 }
 .login-avatar img {
-  width: 72px;
-  height: 72px;
+  width: 150px;
+  height: 150px;
   margin: 8px auto 0 0; /* más separación del card, bien abajo */
   border-radius: 50%;
 }
