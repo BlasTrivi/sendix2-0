@@ -500,8 +500,43 @@ function initLogin(){
   // Términos y condiciones
   const termsCompany = document.getElementById('terms-link-company');
   const termsCarrier = document.getElementById('terms-link-carrier');
-  const termsText = `1) Objeto de la plataforma\nMICARGA es una plataforma digital que conecta oferta y demanda de transporte de cargas.\nMICARGA no presta servicio de transporte, no actúa como transportista ni como intermediario financiero.\n\n2) Pagos y comisiones\n• El valor del flete será acordado directamente entre la Empresa y el Transportista.\n• MICARGA no participa en la transacción económica entre las partes.\n• Por cada viaje confirmado y realizado, MICARGA emitirá factura al Transportista por concepto de comisión sobre el valor final: 10% del total del viaje.\n• El plazo de pago de dicha comisión será de X días corridos desde la fecha de emisión de la factura.\n• En caso de incumplimiento de pago, se incurrirá en mora automática; se aplicarán intereses simples hasta la cancelación total y podrá restringirse el uso de la plataforma.\n\n3) Responsabilidad sobre la carga\n• La responsabilidad civil y contractual recae exclusivamente en el Transportista contratado, quien deberá contar con el seguro obligatorio vigente.\n• MICARGA no se responsabiliza por la mercadería trasladada ni por incumplimientos contractuales entre Empresa y Transportista.\n\n4) Cobertura adicional\n• La Empresa contratante podrá solicitar cobertura adicional mediante la opción “Solicitar cobertura adicional al transportista”; será exclusiva responsabilidad del Transportista proveer la póliza correspondiente.\n\n5) Aceptación\nEl uso de la plataforma implica la aceptación plena y sin reservas de estos Términos y Condiciones, que constituyen un contrato de adhesión entre MICARGA y sus usuarios.`;
-  function openTerms(e){ e?.preventDefault(); try{ window.showNotice?.({ title:'Términos y condiciones', message: termsText, kind:'info', okText:'Entendido' }); }catch{ alert(termsText); } }
+  const termsText = `Términos y Condiciones –  MI CARGA
+1.Objeto de la Plataforma
+MI CARGA es una plataforma digital que conecta oferta y demanda de transporte de cargas.
+Democratiza la oferta y demanda de logística, funcionado cómo punto de encuentro entre aquellos que necesitan un servicio de transporte, con aquellos que pueden brindarlo. Digitaliza y agiliza la operatoria, integrando todas sus instancias en un solo lugar.
+MI CARGA no presta servicios de transporte ni actúa como transportista, comisionista o intermediario financiero
+2.Destinatarios
+Podrán registrarse y utilizar la Plataforma todas las personas humanas mayores de dieciocho (18) años o personas jurídicas válidamente constituidas, que acepten las presentes Bases y Condiciones (“Usuarios”).
+3.Pagos y Comisiones
+El valor del flete será pactado libremente entre la Empresa y el Transportista a través de la Plataforma. MI CARGA no participa en la negociación ni en la ejecución del pago, actuando únicamente como intermediario tecnológico.
+Por cada viaje confirmado, MI CARGA emitirá una factura en concepto de comisión equivalente al 10% del valor total del viaje, pagadera por el Transportista dentro de los 30 días corridos desde la emisión de la factura. 
+Los valores en la plataforma se instrumentarán siempre en ARS (Pesos Argentinos), así como las facturas que se generen desde Mi Carga, se emitirán en Pesos Argentinos.
+En caso de mora, se aplicarán intereses simples conforme a la tasa activa promedio del Banco Nación hasta la cancelación total, y queda a decisión unilateral de Mi Carga de suspender a quién incurra en mora de continuar utilizando los servicios de la Plataforma.
+4. Exclusión de responsabilidad
+MI CARGA no mantiene relación laboral, societaria ni de consumo con los Usuarios.
+La Plataforma actúa únicamente como medio de contacto entre las partes, sin asumir obligación alguna respecto del transporte contratado ni de la mercadería trasladada.
+MI CARGA no asume garantía alguna respecto de la disponibilidad, cumplimiento o idoneidad de los Usuarios registrados.
+La responsabilidad civil, contractual o extracontractual derivada del servicio recae exclusivamente sobre el Transportista.
+Los Usuarios eximen expresamente a MI CARGA de toda responsabilidad por daños personales, materiales, pérdida de mercadería o incumplimientos contractuales, incluso aquellos originados en caso fortuito, fuerza mayor o hecho de terceros.
+
+
+5.Cobertura Adicional
+La Empresa podrá solicitar al Transportista la contratación de una cobertura o seguro adicional. En tal caso, será exclusiva responsabilidad del Transportista gestionar la póliza y remitir la documentación respaldatoria correspondiente. MI CARGA no interviene en la contratación, gestión o verificación de dicha cobertura, ni asume responsabilidad alguna derivada de su inexistencia o insuficiencia.
+
+
+6.Aceptación
+El uso de la Plataforma implica la plena aceptación de los presentes Términos y Condiciones, las cuales constituyen un contrato de adhesión conforme al artículo 984 y concordantes del Código Civil y Comercial de la Nación.
+MI CARGA podrá modificar los presentes términos en cualquier momento, notificando los cambios a los Usuarios por los medios disponibles en la Plataforma.
+7.Propiedad Intelectual
+Todos los derechos de propiedad intelectual e industrial sobre la Plataforma MI CARGA, incluyendo sin limitarse a su código fuente, diseño, estructura, bases de datos, textos, gráficos, logotipos, íconos, nombres comerciales, marcas, contenidos audiovisuales y demás elementos que la integran, son de titularidad exclusiva de MI CARGA y se encuentran protegidos por las leyes nacionales e internacionales vigentes en materia de propiedad intelectual.
+Queda estrictamente prohibida cualquier forma de reproducción, distribución, comunicación pública, transformación, cesión, transmisión, publicación o cualquier otro uso no autorizado de la Plataforma o de cualquiera de sus partes, salvo consentimiento previo y por escrito de MI CARGA.
+El uso de la Plataforma por parte de los usuarios no implica en ningún caso la cesión o concesión de licencia alguna sobre los derechos mencionados.
+Cualquier uso indebido de los elementos protegidos constituirá una infracción a la legislación aplicable, en particular la Ley N.º 11.723 de Propiedad Intelectual y la Ley N.º 22.362 de Marcas y Designaciones, y habilitará a MI CARGA a ejercer las acciones civiles y/o penales que correspondan.
+8.Protección de datos personales:
+MI CARGA cumple con lo dispuesto en la Ley N° 25.326 de Protección de Datos Personales. Los datos suministrados por los Usuarios serán utilizados exclusivamente para el funcionamiento de la Plataforma.
+9. Jurisdicción y ley aplicable:
+Las presentes Bases se regirán por las leyes de la República Argentina. Toda controversia será sometida a la jurisdicción de los tribunales ordinarios de Rosario, Santa Fe, renunciando las partes a cualquier otro fuero o jurisdicción.`;
+  function openTerms(e){ e?.preventDefault(); try{ window.showNotice?.({ title:'Términos y Condiciones –  MI CARGA', message: termsText, kind:'info', okText:'Entendido' }); }catch{ alert(termsText); } }
   termsCompany?.addEventListener('click', openTerms);
   termsCarrier?.addEventListener('click', openTerms);
   if(backLogin){
