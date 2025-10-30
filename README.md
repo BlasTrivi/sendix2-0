@@ -1,6 +1,6 @@
-# MICARGA
+# MI CARGA
 
-Plataforma logística full‑stack que conecta Empresas y Transportistas con un rol moderador (MICARGA). Incluye:
+Plataforma logística full‑stack que conecta Empresas y Transportistas con un rol moderador (MI CARGA). Incluye:
 
 * Publicación y postulación de cargas
 * Moderación / filtrado de propuestas
@@ -112,7 +112,7 @@ La variable `DATABASE_URL` ya apunta al servicio interno `db`.
 * Logout: `/api/auth/logout` (borra cookie).
 * `GET /api/me` entrega usuario actual (o `null`).
 * Cookie: httpOnly, SameSite derivado de `COOKIE_SAMESITE` o `none` si hay CORS_ORIGIN.
-* Admin MICARGA opcional se autogenera si se definen `MICARGA_ADMIN_EMAIL` y `MICARGA_ADMIN_PASSWORD` (o sus equivalentes legacy `SENDIX_*` por compatibilidad).
+* Admin de MI CARGA opcional se autogenera si se definen `MICARGA_ADMIN_EMAIL` y `MICARGA_ADMIN_PASSWORD` (o sus equivalentes legacy `SENDIX_*` por compatibilidad).
 
 ### Variables relevantes
 

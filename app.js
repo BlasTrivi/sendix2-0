@@ -696,7 +696,7 @@ async function renderProfile(emailToView){
     form.innerHTML = `<div class="profile-basic">`
       + `<p><strong>Nombre:</strong> ${escapeHtml(me.name||'')}</p>`
       + `<p><strong>Email:</strong> ${escapeHtml(me.email||'')}</p>`
-  + `<p><strong>Rol:</strong> MICARGA</p>`
+  + `<p><strong>Rol:</strong> MI CARGA</p>`
       + `</div>`;
     return;
   }
