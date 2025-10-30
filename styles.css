@@ -54,6 +54,8 @@
   --focus-outline: 2px solid var(--secondary);
   --focus-outline-offset: 2px;
   --transition-base: .18s cubic-bezier(.4,0,.2,1);
+  /* Altura de la barra superior (usada para que el logo pueda igualar su tamaño) */
+  --topbar-h: 64px;
 }
 /* --------------------
    Mejoras visuales generales
@@ -140,6 +142,10 @@ body{
 
 .brand{display:flex; gap:12px; align-items:center}
 .logo{width:56px; height:56px; object-fit:contain; border-radius:8px; background:#fff}
+
+/* Hacer que el logo pueda escalar para igualar la altura de la topbar */
+.brand-link{ display:inline-flex; align-items:center; height:100%; }
+.brand-link .logo{ height: calc(var(--topbar-h) - 12px); width: auto; max-height: calc(var(--topbar-h) - 8px); background:#fff; border-radius:8px; }
 .logo.large-header{width:84px; height:84px}
 .app-name{margin:0; font-size:var(--step-3); color:var(--primary); line-height:1}
 .tagline{margin:0; color:var(--accent); font-size:12px; font-weight:700}
@@ -734,6 +740,8 @@ body.route-conversaciones.chat-has-active .chat-box.big{ padding-bottom: calc(va
   max-width: min(1240px, 94vw); /* contenedor fluido */
   margin: 0 auto;
   padding: clamp(10px,1.8vw,20px) clamp(14px,3vw,32px);
+  /* garantizar una altura mínima para alinear el logo correctamente */
+  min-height: var(--topbar-h);
   display:flex; align-items:center; justify-content:space-between;
 }
 
