@@ -500,8 +500,7 @@ function initLogin(){
   // Términos y condiciones
   const termsCompany = document.getElementById('terms-link-company');
   const termsCarrier = document.getElementById('terms-link-carrier');
-  const termsText = `Términos y Condiciones –  MI CARGA
-1.Objeto de la Plataforma
+  const termsText = `1.Objeto de la Plataforma
 MI CARGA es una plataforma digital que conecta oferta y demanda de transporte de cargas.
 Democratiza la oferta y demanda de logística, funcionado cómo punto de encuentro entre aquellos que necesitan un servicio de transporte, con aquellos que pueden brindarlo. Digitaliza y agiliza la operatoria, integrando todas sus instancias en un solo lugar.
 MI CARGA no presta servicios de transporte ni actúa como transportista, comisionista o intermediario financiero
@@ -536,7 +535,49 @@ Cualquier uso indebido de los elementos protegidos constituirá una infracción 
 MI CARGA cumple con lo dispuesto en la Ley N° 25.326 de Protección de Datos Personales. Los datos suministrados por los Usuarios serán utilizados exclusivamente para el funcionamiento de la Plataforma.
 9. Jurisdicción y ley aplicable:
 Las presentes Bases se regirán por las leyes de la República Argentina. Toda controversia será sometida a la jurisdicción de los tribunales ordinarios de Rosario, Santa Fe, renunciando las partes a cualquier otro fuero o jurisdicción.`;
-  function openTerms(e){ e?.preventDefault(); try{ window.showNotice?.({ title:'Términos y Condiciones –  MI CARGA', message: termsText, kind:'info', okText:'Entendido' }); }catch{ alert(termsText); } }
+  function openTerms(e){
+    e?.preventDefault();
+    try{
+      // Añadir espacio extra entre oraciones para mejorar la legibilidad.
+      // Insertamos doble salto de línea entre oraciones que terminan en . ? o !
+      // Solo aplicamos cuando la siguiente palabra comienza con mayúscula (evita romper abreviaturas simples).
+      // Queremos líneas vacías SOLO entre ítems numerados (p.ej. entre "8." y "9.")
+      // y no entre oraciones dentro de un mismo ítem.
+      let t = String(termsText || '');
+      // Normalizar saltos de línea
+      t = t.replace(/\r\n/g, '\n');
+      // Insertar doble salto antes de cualquier ítem numerado (\d+.)
+      // salvo si ya está al principio del texto.
+      // Manejar dos casos de ítems numerados:
+      // 1) número + punto + espacio (ej. "9. texto")
+      // 2) número + punto pegado a la palabra (ej. "8.dato"), que convertimos a "8. dato"
+      // Evitamos partir números decimales porque allí el punto va seguido de un dígito (ej. 11.723).
+      // Caso 2: detectar "digits." seguido inmediatamente por letra y normalizar a "digits. "
+      t = t.replace(/(\d+\.)(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/g, (m, p1, offset, s) => {
+        const token = p1 + ' ';
+        if(offset === 0) return token;
+        const before = s.slice(Math.max(0, offset - 3), offset);
+        if(/\n\n$/.test(before)) return token;
+        if(/\n$/.test(before)) return '\n' + token;
+        return '\n\n' + token;
+      });
+      // Caso 1: número + punto + espacio
+      t = t.replace(/(\d+\.)\s+/g, (m, p1, offset, s) => {
+        const token = p1 + ' ';
+        if(offset === 0) return token;
+        const before = s.slice(Math.max(0, offset - 3), offset);
+        if(/\n\n$/.test(before)) return token;
+        if(/\n$/.test(before)) return '\n' + token;
+        return '\n\n' + token;
+      });
+      // Normalizar múltiples saltos (>2) a exactamente 2
+      t = t.replace(/\n{3,}/g, '\n\n');
+      const spaced = t;
+      window.showNotice?.({ title:'Términos y Condiciones –  MI CARGA', message: spaced, kind:'info', okText:'Entendido' });
+    }catch{
+      alert(termsText);
+    }
+  }
   termsCompany?.addEventListener('click', openTerms);
   termsCarrier?.addEventListener('click', openTerms);
   if(backLogin){
